@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>05 · 무엇을 쓸까 — ROS2, 눈으로 보기</title>
+<link rel="stylesheet" href="shared/theme.css">
+<link rel="icon" type="image/svg+xml" href="shared/favicon.svg">
+<style>
+  .scene{cursor:default;}
+  .big{font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--ink); margin:8px 2px 0;}
+  .ctl{display:flex; align-items:center; gap:10px; margin:10px 0; flex-wrap:wrap;}
+  svg{display:block; width:100%; background:var(--panel-2); border:1px solid var(--line); border-radius:12px;}
+  .toggles{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+  .toggles button{font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:8px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);cursor:pointer}
+  .toggles button.on{color:#0b0e14;font-weight:700}
+  .q{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:10px 0}
+  .q .scenario{font-size:14px;color:var(--ink);margin-bottom:10px}
+  .q .opts{display:flex;gap:8px;flex-wrap:wrap}
+  .q .opts button{font-family:'JetBrains Mono',monospace;font-size:13px;padding:8px 16px;border-radius:8px;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);cursor:pointer}
+  .verdict{margin-top:10px;font-size:13px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topnav" id="topnav"></div>
+
+  <header>
+    <div class="tag" style="color:var(--v)">PART B · 통신 방식 — CH 05</div>
+    <h1>무엇을 쓸까 — 결정 가이드</h1>
+    <p class="intro">토픽·서비스·액션을 다 배웠어요. 이제 실전에서 늘 부딪히는 질문 — <b>"이 일엔 뭘 써야 하지?"</b>예요. 다행히 규칙은 단순해요. <b>데이터가 계속 흐르나?</b> → 토픽. <b>한 번 묻고 즉답?</b> → 서비스. <b>오래 걸리고 진행을 보거나 취소해야 하나?</b> → 액션. 이 챕터에서 결정 트리를 따라가 보고, 실제 시나리오로 직접 골라보며 감을 잡아요. 잘못 고르면 어떤 고생을 하는지(안티패턴)도 함께요.</p>
+  </header>
+
+  <nav class="stepper" id="stepper">
+    <button data-s="0" class="active">00 · 결정 트리</button>
+    <button data-s="1">01 · 시나리오 퀴즈</button>
+    <button data-s="2">02 · 잘못 고르면</button>
+    <button data-s="3">03 · 정리</button>
+  </nav>
+
+  <!-- STEP 0 -->
+  <section class="panel show" data-panel="0">
+    <span class="kicker" style="color:var(--hot)">Step 00 — Decision Tree</span>
+    <h2>세 갈래로 가르는 두 개의 질문</h2>
+    <p class="lead">각 갈림길을 <b>눌러</b> 따라가 보세요. 단 <b>두 번</b>의 질문이면 답이 나와요. ① "계속 흐르는 데이터인가?" — 그렇다면 토픽. 아니면 ② "오래 걸리고 진행·취소가 필요한가?" — 그렇다면 액션, 아니면(즉답이면) 서비스. 외우지 말고 <b>질문을 던지는 습관</b>을 들이세요.</p>
+    <div class="scene" id="s0"></div>
+    <p class="big" id="lab0"></p>
+    <p class="note" style="margin-top:6px">→ 초록 칸을 누르면 그 갈래가 켜져요. 회색은 아직 안 고른 길.</p>
+  </section>
+
+  <!-- STEP 1 -->
+  <section class="panel" data-panel="1">
+    <span class="kicker" style="color:var(--q)">Step 01 — Scenario Quiz</span>
+    <h2>직접 골라보기 — 어떤 상황엔 뭘?</h2>
+    <p class="lead">아래 상황에 맞는 통신 방식을 골라보세요. 정답과 함께 <b>왜 그런지</b> 설명이 나와요. 다 맞히면 결정 감각이 생긴 거예요.</p>
+    <div class="q" id="quiz"></div>
+    <div class="ctl"><button class="btn" id="next1">다음 문제 →</button> <span id="score1" style="color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:13px"></span></div>
+    <p class="note" style="margin-top:6px">→ 경계가 애매한 것도 있어요 — "정답이 하나뿐"이라기보단 "이 상황에서 가장 자연스러운" 선택이에요.</p>
+  </section>
+
+  <!-- STEP 2 -->
+  <section class="panel" data-panel="2">
+    <span class="kicker" style="color:var(--v)">Step 02 — Anti-patterns</span>
+    <h2>잘못 고르면 — 흔한 안티패턴</h2>
+    <p class="lead">엉뚱한 방식을 쓰면 동작은 해도 <b>고생</b>해요. 각 안티패턴을 눌러 무엇이 문제인지 보세요. 가장 흔한 셋 — <b>토픽 두 개로 요청·응답 흉내</b>, <b>서비스로 장시간 작업</b>, <b>모든 걸 액션으로</b>.</p>
+    <div class="toggles" id="ap"></div>
+    <div class="scene" id="s2"></div>
+    <p class="big" id="lab2"></p>
+    <p class="note" style="margin-top:6px">→ "동작은 한다"와 "올바르다"는 달라요. 방식이 맞으면 코드도 디버깅도 훨씬 쉬워져요.</p>
+  </section>
+
+  <!-- STEP 3 -->
+  <section class="panel" data-panel="3">
+    <span class="kicker" style="color:var(--good)">Step 03 — Takeaways</span>
+    <h2>정리 — PART B를 닫으며</h2>
+    <p class="lead">통신 방식 선택은 <b>두 질문</b>으로 끝나요: "계속 흐르나?"(→토픽), 아니면 "오래+진행·취소?"(→액션) vs "즉답?"(→서비스). 여기까지가 <b>노드를 어떻게 잇는가</b>였어요. 다음 PART부터는 한 단계 더 깊은 질문 — 같은 토픽이라도 <b>"메시지를 어떻게 받을까"</b>(QoS)로 들어가요. ROS2의 진짜 난관이 시작되는 곳이에요.</p>
+    <div class="scene" id="s3"></div>
+    <p class="big" id="lab3"></p>
+    <p class="note" style="margin-top:14px">→ 다음 → <a href="06-qos-reliability.html" style="color:var(--q);font-weight:700">CH 06 · QoS 신뢰성 — 다 받기 vs 빠르게</a></p>
+  </section>
+
+  <p class="foot">// 코드 없는 직관 입문 · <a href="index.html">목차</a></p>
+</div>
+
+<script src="shared/lib.js"></script>
+<script src="shared/lib-ros.js"></script>
+<script>
+VZ.mountTopnav('#topnav', '05 · 무엇을 쓸까');
+VZ.setupStepper();
+const R=VZ.ROS, fmt=VZ.fmt, clamp=VZ.clamp;
+const KIND={topic:{k:'토픽',c:'var(--q)'},service:{k:'서비스',c:R.C.ok},action:{k:'액션',c:'var(--pink)'}};
+
+// ===== STEP 0: decision tree =====
+(function(){ const W=460,H=250; let path=[]; // 'flow' | 'noflow' then 'long'|'quick'
+  function render(){ let s='';
+    // Q1
+    s+=node(180,16,100,38,'① 계속 흐르나?','var(--ink)','var(--v)',false);
+    // branch yes → topic
+    const onTopic=path[0]==='flow';
+    s+=`<text x="120" y="78" fill="${onTopic?'var(--q)':'var(--faint)'}" font-size="10" font-family="monospace" text-anchor="middle">예</text>`;
+    s+=edgeC(200,54, 90,92, onTopic);
+    s+=node(40,92,100,40,'토픽','#fff',KIND.topic.c,onTopic,'pub/sub');
+    // branch no → Q2
+    const onNo=path[0]==='noflow';
+    s+=`<text x="280" y="78" fill="${onNo?'var(--ink)':'var(--faint)'}" font-size="10" font-family="monospace" text-anchor="middle">아니오</text>`;
+    s+=edgeC(250,54, 320,92, onNo);
+    s+=node(255,92,140,40,'② 오래+진행·취소?',onNo?'var(--ink)':'var(--faint)','var(--v)',false);
+    // Q2 yes → action
+    const onAct=path[1]==='long';
+    s+=`<text x="250" y="156" fill="${onAct?'var(--pink)':'var(--faint)'}" font-size="10" font-family="monospace" text-anchor="middle">예</text>`;
+    if(onNo){ s+=edgeC(290,132, 230,176, onAct); }
+    s+=node(170,176,120,40,'액션','#fff',KIND.action.c,onAct,'goal/fb/result');
+    // Q2 no → service
+    const onSvc=path[1]==='quick';
+    s+=`<text x="375" y="156" fill="${onSvc?R.C.ok:'var(--faint)'}" font-size="10" font-family="monospace" text-anchor="middle">아니오(즉답)</text>`;
+    if(onNo){ s+=edgeC(360,132, 380,176, onSvc); }
+    s+=node(320,176,120,40,'서비스','#fff',KIND.service.c,onSvc,'request/response');
+    document.getElementById('s0').innerHTML=R.svg(W,H,s,'결정 트리');
+    let msg='갈림길을 눌러 따라가 보세요.';
+    if(path[0]==='flow') msg='계속 흐르는 데이터 → <b style="color:var(--q)">토픽</b>. 센서·상태·영상에 딱.';
+    else if(path[1]==='long') msg='오래 걸리고 진행·취소 필요 → <b style="color:var(--pink)">액션</b>.';
+    else if(path[1]==='quick') msg='즉답 단발 → <b style="color:var(--good)">서비스</b>.';
+    else if(path[0]==='noflow') msg='흐름이 아니면 → 두 번째 질문으로.';
+    document.getElementById('lab0').innerHTML=msg;
+  }
+  function node(x,y,w,h,t,tc,sc,on,sub){ let s=`<rect class="tn" data-act x="${x}" y="${y}" width="${w}" height="${h}" rx="9" fill="${on?sc:'var(--panel)'}" stroke="${sc}" stroke-width="${on?2.4:1.4}" opacity="${on||tc==='var(--ink)'?1:0.6}" style="cursor:pointer"/>`;
+    s+=`<text x="${x+w/2}" y="${y+(sub?17:h/2+4)}" fill="${on?'#0b0e14':tc}" font-size="12" font-family="monospace" font-weight="700" text-anchor="middle" style="pointer-events:none">${t}</text>`;
+    if(sub) s+=`<text x="${x+w/2}" y="${y+h-7}" fill="${on?'#0b0e14':'var(--muted)'}" font-size="8.5" font-family="monospace" text-anchor="middle" style="pointer-events:none">${sub}</text>`;
+    return s; }
+  function edgeC(x1,y1,x2,y2,on){ return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${on?'var(--good)':'var(--line)'}" stroke-width="${on?2.2:1.2}"/>`; }
+  document.getElementById('s0').addEventListener('click',e=>{ const r=e.target.closest('rect.tn'); if(!r)return;
+    const x=+r.getAttribute('x'), y=+r.getAttribute('y');
+    if(y<60) return; // 질문 박스
+    if(y<140){ // 토픽 or Q2
+      if(x<150){ path=['flow']; } else { path=['noflow']; } }
+    else { if(path[0]!=='noflow'){ document.getElementById('lab0').innerHTML='먼저 ① 질문에 답해 보세요 — "계속 흐르나?"의 <b>아니오</b>를 거쳐야 여기로 와요.'; return; } if(x<300){ path=['noflow','long']; } else { path=['noflow','quick']; } }
+    render(); });
+  render();
+})();
+
+// ===== STEP 1: quiz =====
+(function(){ const Qs=[
+    {s:'카메라 영상을 30Hz로 계속 내보내기',a:'topic',why:'끊임없이 흐르는 데이터 — 받는 이가 누군지 신경 안 쓰고 흘려보내요.'},
+    {s:'"지금 배터리 잔량 몇 %?" 묻고 즉답 받기',a:'service',why:'한 번 묻고 그 자리서 답받는 단발 요청.'},
+    {s:'로봇을 10m 떨어진 지점까지 이동(진행률 보며, 취소 가능)',a:'action',why:'오래 걸리고 진행을 보며 취소도 해야 함 — 전형적 액션.'},
+    {s:'로봇 팔 관절 각도를 100Hz로 모터에 보내기',a:'topic',why:'고주기로 계속 흐르는 제어 신호 — 토픽.'},
+    {s:'"인식 모델을 기본값으로 리셋해줘" (1초 내 완료)',a:'service',why:'짧고 즉답이 필요한 명령 — 서비스.'},
+    {s:'"이 물체를 집어 올려" (수 초 소요, 중간 취소 가능)',a:'action',why:'시간이 걸리고 취소·진행이 의미 있음 — 액션.'},
+  ];
+  let i=0, score=0, answered=false; let order=[0,1,2,3,4,5];
+  function render(){ const q=Qs[order[i]]; const el=document.getElementById('quiz');
+    el.innerHTML=`<div class="scenario">📋 <b>상황 ${i+1}/${Qs.length}</b> — ${q.s}</div>`+
+      `<div class="opts">`+['topic','service','action'].map(k=>`<button data-k="${k}" style="border-color:${KIND[k].c}">${KIND[k].k}</button>`).join('')+`</div>`+
+      `<div class="verdict" id="vd"></div>`;
+    document.getElementById('score1').textContent=`점수 ${score}/${Qs.length}`;
+    el.querySelectorAll('.opts button').forEach(b=>b.onclick=()=>{ if(answered)return; answered=true; const k=b.dataset.k; const ok=k===q.a;
+      if(ok)score++; el.querySelectorAll('.opts button').forEach(x=>{ if(x.dataset.k===q.a){x.style.background=KIND[q.a].c;x.style.color='#0b0e14';x.style.fontWeight='700';} else if(x===b&&!ok){x.style.background=R.C.drop;x.style.color='#fff';} });
+      document.getElementById('vd').innerHTML=`${ok?'<b style="color:var(--good)">✓ 정답</b>':`<b style="color:var(--drop)">✗</b> 정답은 <b style="color:${KIND[q.a].c}">${KIND[q.a].k}</b>`} — ${q.why}`;
+      document.getElementById('score1').textContent=`점수 ${score}/${Qs.length}`;
+    });
+  }
+  document.getElementById('next1').onclick=()=>{ i=(i+1)%Qs.length; answered=false; if(i===0)score=0; render(); };
+  render();
+})();
+
+// ===== STEP 2: anti-patterns =====
+(function(){ let sel=0;
+  const AP=[
+    {k:'토픽 2개로 요청·응답',bad:'요청 토픽 + 응답 토픽으로 서비스 흉내. 누구 요청에 대한 응답인지 짝짓기 어렵고, 동시 요청이 엉켜요. 응답 유실도 모르죠.',fix:'→ 서비스를 쓰세요. 요청-응답 짝이 보장돼요.'},
+    {k:'서비스로 장시간 작업',bad:'10초 걸리는 이동을 서비스로 하면, 그 사이 진행을 못 보고 취소도 못 해요. 동기로 부르면 클라이언트가 통째로 얼어붙고요.',fix:'→ 액션을 쓰세요. 피드백·취소가 공짜로 따라와요.'},
+    {k:'모든 걸 액션으로',bad:'"배터리 잔량" 같은 즉답까지 액션으로 만들면 목표·피드백·결과·취소 서버를 다 구현해야 해 과해요. 코드가 불필요하게 복잡.',fix:'→ 즉답엔 서비스, 흐름엔 토픽. 액션은 정말 오래 걸리는 일에만.'},
+  ];
+  const ap=document.getElementById('ap');
+  ap.innerHTML=AP.map((a,i)=>`<button data-i="${i}">${a.k}</button>`).join('');
+  function render(){ const W=460,H=160; const a=AP[sel]; let s='';
+    s+=`<rect x="14" y="14" width="${W-28}" height="${H-28}" rx="12" fill="var(--panel-2)" stroke="${R.C.drop}"/>`;
+    s+=`<text x="32" y="42" fill="${R.C.drop}" font-size="14" font-family="monospace" font-weight="700">⚠ ${a.k}</text>`;
+    s+=`<foreignObject x="32" y="52" width="${W-64}" height="96"><div xmlns="http://www.w3.org/1999/xhtml" style="font-family:monospace;font-size:12px;line-height:1.55;color:#cdd6f4"><div>${a.bad}</div><div style="color:var(--good);margin-top:8px">${a.fix}</div></div></foreignObject>`;
+    document.getElementById('s2').innerHTML=R.svg(W,H,s,a.k);
+    document.querySelectorAll('#ap button').forEach((b,i)=>{ const on=i===sel; b.classList.toggle('on',on); b.style.background=on?R.C.drop:'var(--panel-2)'; b.style.color=on?'#fff':'var(--muted)'; });
+    document.getElementById('lab2').innerHTML='방식이 안 맞으면 동작해도 <b>디버깅·확장이 지옥</b>이 돼요.';
+  }
+  ap.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return; sel=+b.dataset.i; render(); });
+  render();
+})();
+
+// ===== STEP 3: takeaways =====
+(function(){ const W=460,H=140;
+  let s=`<text x="${W/2}" y="24" fill="var(--good)" font-size="13" font-family="monospace" text-anchor="middle" font-weight="700">두 질문이면 끝</text>`;
+  const rows=[['계속 흐르나?','예 → 토픽','var(--q)'],['오래+진행·취소?','예 → 액션','var(--pink)'],['그 외 즉답','→ 서비스','var(--good)']];
+  rows.forEach((r,i)=>{ const y=38+i*32; s+=`<rect x="40" y="${y}" width="${W-80}" height="26" rx="7" fill="var(--panel)" stroke="${r[2]}" stroke-width="1.1"/><text x="56" y="${y+17}" fill="var(--ink)" font-size="12" font-family="monospace">${r[0]}</text><text x="${W-56}" y="${y+17}" fill="${r[2]}" font-size="12" font-family="monospace" text-anchor="end" font-weight="700">${r[1]}</text>`; });
+  document.getElementById('s3').innerHTML=R.svg(W,H,s,'정리');
+  document.getElementById('lab3').innerHTML=`연결 방법은 끝 — 이제 <b style="color:var(--hot)">"어떻게 받을까"(QoS)</b>로. ROS2의 진짜 난관이에요.`;
+})();
+</script>
+</body>
+</html>

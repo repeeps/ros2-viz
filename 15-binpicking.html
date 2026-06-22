@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>15 · 빈피킹 캡스톤 — ROS2, 눈으로 보기</title>
+<link rel="stylesheet" href="shared/theme.css">
+<link rel="icon" type="image/svg+xml" href="shared/favicon.svg">
+<style>
+  .scene{cursor:default;}
+  .big{font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--ink); margin:8px 2px 0;}
+  .ctl{display:flex; align-items:center; gap:10px; margin:10px 0; flex-wrap:wrap;}
+  svg{display:block; width:100%; background:var(--panel-2); border:1px solid var(--line); border-radius:12px;}
+  .toggles{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+  .toggles button{font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:8px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);cursor:pointer}
+  .toggles button.on{color:#0b0e14;font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topnav" id="topnav"></div>
+
+  <header>
+    <div class="tag" style="color:var(--pink)">PART F · 실전 — CH 15</div>
+    <h1>빈피킹 캡스톤 — 노드로 엮기</h1>
+    <p class="intro">배운 걸 다 모아요. <b>통 속 부품을 집어 박스로 옮기는</b> 빈피킹 시스템을 ROS2 노드들로 지어봐요 — <b>카메라</b>가 영상을 흘리고(토픽), <b>인식</b> 노드가 물체를 찾고, <b>그래스프 계획</b> 노드가 잡을 곳을 정하고(서비스), <b>팔</b> 노드가 움직여요(액션). 좌표는 <b>tf</b>로 잇고요. 각 부분이 <b>어떤 통신·QoS·executor·tf</b>를 쓰는지 — 이 트랙에서 배운 개념들이 <b>실제 시스템 어디에</b> 박혀 있는지 한눈에 봐요. (잡는 기하·품질의 <b>원리</b>는 자매 트랙 "그래스핑·빈피킹"에 있어요. 여기선 그걸 <b>노드로 어떻게 연결하나</b>예요.)</p>
+  </header>
+
+  <nav class="stepper" id="stepper">
+    <button data-s="0" class="active">00 · 시스템 그래프</button>
+    <button data-s="1">01 · 한 사이클 흐름</button>
+    <button data-s="2">02 · 개념이 박힌 곳</button>
+    <button data-s="3">03 · 정리</button>
+  </nav>
+
+  <!-- STEP 0 -->
+  <section class="panel show" data-panel="0">
+    <span class="kicker" style="color:var(--hot)">Step 00 — The System Graph</span>
+    <h2>빈피킹 = 네 노드 + tf</h2>
+    <p class="lead">전체 그래프예요. <b>카메라 → 인식 → 그래스프 계획 → 팔</b>이 각기 다른 통신으로 이어져요 — <b style="color:var(--q)">토픽</b>(흐르는 영상), <b style="color:var(--good)">서비스</b>(잡을 자세 요청·응답), <b style="color:var(--pink)">액션</b>(팔 이동). 모든 좌표는 <b style="color:var(--v)">tf</b>가 묶어요. 노드를 눌러 역할을 확인하세요.</p>
+    <div class="toggles" id="nodes0"></div>
+    <div class="scene" id="s0"></div>
+    <p class="big" id="lab0"></p>
+    <p class="note" style="margin-top:6px">→ 통신 종류가 곧 데이터 성격이에요 — 흐르면 토픽, 즉답이면 서비스, 오래 걸리면 액션(CH 05의 규칙 그대로).</p>
+  </section>
+
+  <!-- STEP 1 -->
+  <section class="panel" data-panel="1">
+    <span class="kicker" style="color:var(--q)">Step 01 — One Pick Cycle</span>
+    <h2>한 번 집기 — 메시지가 시스템을 흐른다</h2>
+    <p class="lead">▶를 누르면 한 번의 집기 사이클이 메시지를 따라 흐르며 단계별로 켜져요: <b>영상 발행 → 물체 인식 → 좌표 변환(tf) → 그래스프 요청·응답 → 팔 이동(액션)</b>. 노란 점이 노드 사이를 오가는 메시지예요. 각 단계 위에 어떤 ROS2 메커니즘이 쓰이는지 표시돼요.</p>
+    <div class="ctl"><button class="btn play" id="go1">▶ 한 번 집기</button> <button class="btn" id="rst1">↺ 리셋</button></div>
+    <div class="scene" id="s1"></div>
+    <p class="big" id="lab1"></p>
+    <p class="note" style="margin-top:6px">→ 한 사이클이 끝나면 다음 부품으로 반복 — 이게 자매 트랙의 "픽 루프"예요(연속·실패복구는 거기서).</p>
+  </section>
+
+  <!-- STEP 2 -->
+  <section class="panel" data-panel="2">
+    <span class="kicker" style="color:var(--v)">Step 02 — Where Each Concept Lives</span>
+    <h2>배운 개념이 박힌 곳</h2>
+    <p class="lead">이 트랙의 개념들이 빈피킹 시스템 어디에 쓰이는지 봐요. 각 항목을 눌러 <b>왜 거기에</b> 그 선택을 하는지 확인하세요 — QoS·executor·tf·통신 방식이 따로 노는 지식이 아니라 <b>한 시스템 안에서 맞물린다</b>는 걸 느낄 거예요.</p>
+    <div class="toggles" id="concepts"></div>
+    <div class="scene" id="s2"></div>
+    <p class="big" id="lab2"></p>
+    <p class="note" style="margin-top:6px">→ 이제 실제 ROS2 빈피킹 코드를 봐도 "이 토픽은 왜 BestEffort지?", "팔은 왜 액션이지?"가 읽혀요.</p>
+  </section>
+
+  <!-- STEP 3 -->
+  <section class="panel" data-panel="3">
+    <span class="kicker" style="color:var(--good)">Step 03 — Takeaways</span>
+    <h2>정리 — 시스템을 읽는 눈</h2>
+    <p class="lead">빈피킹은 <b>네 노드가 토픽·서비스·액션·tf로 엮인 한 시스템</b>이에요. 데이터 성격이 통신 방식을, 센서 특성이 QoS를, 콜백 부하가 executor를 정하죠. 이 트랙은 "노드를 <b>어떻게 연결하나</b>"였고, 잡는 <b>기하·품질의 원리</b>는 자매 트랙에 있어요 — 둘을 합치면 빈피킹 한 바퀴가 완성돼요. 마지막으로, 이 트랙이 <b>다루지 않은 것</b>과 다음 발걸음을 정리할게요.</p>
+    <div class="scene" id="s3"></div>
+    <p class="big" id="lab3"></p>
+    <p class="note" style="margin-top:14px">→ 다음 → <a href="16-beyond.html" style="color:var(--q);font-weight:700">CH 16 · 너머 — 여기서 어디로</a></p>
+  </section>
+
+  <p class="foot">// 코드 없는 직관 입문 · <a href="index.html">목차</a></p>
+</div>
+
+<script src="shared/lib.js"></script>
+<script src="shared/lib-ros.js"></script>
+<script>
+VZ.mountTopnav('#topnav', '15 · 빈피킹 캡스톤');
+VZ.setupStepper();
+const R=VZ.ROS, fmt=VZ.fmt, clamp=VZ.clamp;
+// 노드 배치 (좌→우 파이프라인)
+const ND=[{id:'cam',label:'카메라',x:24,y:96,desc:'통을 촬영해 영상을 흘려보냄 (depth+RGB)'},
+  {id:'det',label:'인식',x:150,y:96,desc:'영상에서 물체 위치·자세(6-DoF)를 찾음'},
+  {id:'grasp',label:'그래스프',x:276,y:96,desc:'어디를 어떻게 잡을지 계획 (자매 트랙 원리)'},
+  {id:'arm',label:'팔',x:392,y:96,desc:'계획된 자세로 이동해 집고 옮김'}];
+const NW=86,NH=44;
+const EDGES=[{a:0,b:1,kind:'토픽',c:'var(--q)',topic:'/image'},{a:1,b:2,kind:'서비스',c:'var(--good)',topic:'/plan_grasp'},{a:2,b:3,kind:'액션',c:'var(--pink)',topic:'/pick'}];
+
+// ===== STEP 0: system graph =====
+(function(){ const W=460,H=200; let sel=-1;
+  const nodes0=document.getElementById('nodes0');
+  nodes0.innerHTML=ND.map((n,i)=>`<button data-i="${i}">${n.label}</button>`).join('');
+  function render(){ let s='';
+    EDGES.forEach(e=>{ const a=ND[e.a],b=ND[e.b]; s+=R.edge(a.x+NW,a.y+NH/2,b.x,b.y+NH/2,{color:e.c,lw:1.8}); s+=`<text x="${(a.x+NW+b.x)/2}" y="${a.y+NH/2-8}" fill="${e.c}" font-size="8.5" font-family="monospace" text-anchor="middle">${e.kind}</text>`; s+=`<text x="${(a.x+NW+b.x)/2}" y="${a.y+NH/2+18}" fill="var(--muted)" font-size="8" font-family="monospace" text-anchor="middle">${e.topic}</text>`; });
+    ND.forEach((n,i)=>{ s+=R.box(n.x,n.y,NW,NH,n.label,{color:i===sel?'var(--hot)':R.C.node,lw:i===sel?2.6:2}); });
+    // tf 띠 (전체를 묶음)
+    s+=`<rect x="14" y="44" width="${W-28}" height="30" rx="8" fill="none" stroke="var(--v)" stroke-width="1.2" stroke-dasharray="5 4"/><text x="${W/2}" y="62" fill="var(--v)" font-size="10.5" font-family="monospace" text-anchor="middle">tf2 — 모든 좌표계를 묶음 (map ↔ base_link ↔ camera_link)</text>`;
+    // 통/박스 아이콘
+    s+=`<text x="${ND[0].x+NW/2}" y="178" fill="var(--q)" font-size="9" font-family="monospace" text-anchor="middle">통(bin)</text>`;
+    s+=`<text x="${ND[3].x+NW/2}" y="178" fill="var(--good)" font-size="9" font-family="monospace" text-anchor="middle">박스</text>`;
+    document.getElementById('s0').innerHTML=R.svg(W,H,s,'빈피킹 시스템 그래프');
+    document.querySelectorAll('#nodes0 button').forEach((b,i)=>{ const on=i===sel; b.classList.toggle('on',on); b.style.background=on?'var(--hot)':'var(--panel-2)'; b.style.color=on?'#0b0e14':'var(--muted)'; });
+    document.getElementById('lab0').innerHTML = sel<0?'노드를 눌러 역할을 확인하세요. 네 노드가 토픽·서비스·액션으로 한 줄로 꿰여요.':`<b style="color:var(--hot)">${ND[sel].label}</b> — ${ND[sel].desc}`;
+  }
+  nodes0.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return; sel=+b.dataset.i; render(); });
+  render();
+})();
+
+// ===== STEP 1: one pick cycle flow =====
+(function(){ const W=460,H=210; let cancel=null;
+  const STEPS=[{t:0.0,lab:'카메라가 /image 발행',mech:'토픽 · BestEffort QoS',e:0},
+    {t:0.22,lab:'인식 결과로 그래스프 계획 요청·응답',mech:'서비스 /plan_grasp (요청→응답)',e:1},
+    {t:0.44,lab:'tf로 물체를 base_link 좌표로 변환',mech:'tf2 (영상 timestamp로 조회)',e:-1},
+    {t:0.62,lab:'그래스프 계획 → 팔에 목표 전송',mech:'액션 goal',e:2},
+    {t:0.82,lab:'팔 이동 (진행률 피드백)',mech:'액션 feedback/result',e:2}];
+  function render(p){ let s='';
+    EDGES.forEach(e=>{ const a=ND[e.a],b=ND[e.b]; s+=R.edge(a.x+NW,a.y+NH/2,b.x,b.y+NH/2,{color:'var(--line)',lw:1.4}); });
+    // 현재 단계
+    let cur=0; for(let i=0;i<STEPS.length;i++) if(p>=STEPS[i].t) cur=i;
+    ND.forEach((n,i)=>{ const active = (cur>=0) && ([STEPS[cur].e].includes(i) || (STEPS[cur].e>=0 && (EDGES[STEPS[cur].e].a===i||EDGES[STEPS[cur].e].b===i)));
+      s+=R.box(n.x,n.y,NW,NH,n.label,{color:active?'var(--hot)':R.C.node,lw:active?2.4:2,dim:!active&&p>0.02}); });
+    // 메시지 패킷 (현재 엣지 위)
+    const st=STEPS[cur]; if(st.e>=0 && p<0.99){ const e=EDGES[st.e],a=ND[e.a],b=ND[e.b]; const segP=clamp((p-st.t)/0.18,0,1); const pt=R.lerp2([a.x+NW,a.y+NH/2],[b.x,b.y+NH/2],segP); s+=R.packet(pt[0],pt[1],{}); }
+    // tf 단계 표시
+    if(st.e<0){ s+=`<rect x="14" y="44" width="${W-28}" height="26" rx="8" fill="rgba(192,132,252,.12)" stroke="var(--v)" stroke-width="1.4"/><text x="${W/2}" y="61" fill="var(--v)" font-size="10.5" font-family="monospace" text-anchor="middle">tf2 변환 중…</text>`; }
+    // 진행바 + 단계 라벨
+    s+=R.progress(30,160,W-60,p,{color:'var(--pink)'});
+    s+=`<text x="${W/2}" y="150" fill="var(--ink)" font-size="11" font-family="monospace" text-anchor="middle">${cur+1}/${STEPS.length} · ${st.lab}</text>`;
+    s+=`<text x="${W/2}" y="190" fill="var(--hot)" font-size="10" font-family="monospace" text-anchor="middle">메커니즘: ${st.mech}</text>`;
+    document.getElementById('s1').innerHTML=R.svg(W,H,s,'한 픽 사이클');
+    document.getElementById('lab1').innerHTML = p<0.02?'▶로 한 번 집기를 실행하세요.': p>=0.99?'한 사이클 완료 — 영상부터 팔 이동까지 <b>네 노드가 메시지로 협력</b>했어요.':`<b style="color:var(--hot)">${st.lab}</b> (${st.mech})`;
+  }
+  document.getElementById('go1').onclick=()=>{ if(cancel)cancel(); cancel=VZ.LA.tween(p=>render(p),4200,()=>render(1)); };
+  document.getElementById('rst1').onclick=()=>{ if(cancel)cancel(); render(0); };
+  render(0);
+})();
+
+// ===== STEP 2: concept map =====
+(function(){ let sel=0;
+  const C=[
+    {k:'카메라 영상 = BestEffort',ch:'CH 06',why:'30Hz 고주기 스트림 — 한 프레임 놓쳐도 다음 게 곧 와요. 재전송으로 밀리는 게 손해라 Best Effort.'},
+    {k:'그래스프 계획 = 서비스',ch:'CH 03',why:'"이 물체 어떻게 잡을까?"는 한 번 묻고 답 받는 요청-응답 — 서비스가 딱. 답을 그 자리서 막고 기다리지 말고 비동기로.'},
+    {k:'팔 이동 = 액션',ch:'CH 04',why:'수 초 걸리고 진행률·취소가 필요해요. 토픽·서비스로는 부족 — 액션.'},
+    {k:'좌표 변환 = tf2 + timestamp',ch:'CH 12',why:'카메라→base_link 변환을 영상이 찍힌 시각으로 조회. "지금"으로 하면 그새 팔이 움직여 빗나가요.'},
+    {k:'무거운 인식 = 멀티스레드',ch:'CH 11',why:'인식 콜백이 길어요. 단일 스레드면 다른 콜백을 막으니, 콜백 그룹으로 분리하거나 멀티스레드로.'},
+    {k:'연결 안 되면 = QoS 먼저 의심',ch:'CH 07',why:'카메라↔인식이 안 이어지면 이름·타입보다 QoS 불일치(발행 BE × 구독 Reliable 등)를 먼저 봐요 — 조용히 실패하니까.'},
+    {k:'노드들이 만나는 법 = 디스커버리',ch:'CH 13',why:'네 노드는 마스터 없이 서로를 찾아 연결돼요. 같은 도메인 ID로 묶고, 켜는 순서는 신경 안 써도 돼요.'},
+    {k:'launch로 전체 기동',ch:'CH 14',why:'네 노드 + 네임스페이스 + 파라미터를 한 대본에. 명령 한 줄로 빈피킹 시스템 전체를 올려요.'},
+  ];
+  const cc=document.getElementById('concepts');
+  cc.innerHTML=C.map((c,i)=>`<button data-i="${i}">${c.k.split(' = ')[0]}</button>`).join('');
+  function render(){ const W=460,H=160; const c=C[sel]; let s='';
+    s+=`<rect x="14" y="14" width="${W-28}" height="${H-28}" rx="12" fill="var(--panel-2)" stroke="var(--hot)"/>`;
+    s+=`<text x="32" y="42" fill="var(--hot)" font-size="14" font-family="monospace" font-weight="700">${c.k}</text>`;
+    s+=`<text x="${W-32}" y="42" fill="var(--good)" font-size="11" font-family="monospace" text-anchor="end">${c.ch}</text>`;
+    s+=`<foreignObject x="32" y="56" width="${W-64}" height="92"><div xmlns="http://www.w3.org/1999/xhtml" style="font-family:monospace;font-size:12.5px;line-height:1.6;color:#cdd6f4">${c.why}</div></foreignObject>`;
+    document.getElementById('s2').innerHTML=R.svg(W,H,s,c.k);
+    document.querySelectorAll('#concepts button').forEach((b,i)=>{ const on=i===sel; b.classList.toggle('on',on); b.style.background=on?'var(--hot)':'var(--panel-2)'; b.style.color=on?'#0b0e14':'var(--muted)'; });
+    document.getElementById('lab2').innerHTML='개념들이 <b>한 시스템 안에서 맞물려요</b> — 데이터 성격이 통신·QoS·executor를 정하죠.';
+  }
+  cc.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return; sel=+b.dataset.i; render(); });
+  render();
+})();
+
+// ===== STEP 3: takeaways =====
+(function(){ const W=460,H=150;
+  let s=`<text x="${W/2}" y="24" fill="var(--good)" font-size="12.5" font-family="monospace" text-anchor="middle" font-weight="700">빈피킹 = 토픽 + 서비스 + 액션 + tf</text>`;
+  const rows=[['이 트랙','노드를 어떻게 연결하나','var(--q)'],['자매 트랙','잡는 기하·품질의 원리','var(--good)'],['합치면','빈피킹 한 바퀴 완성','var(--hot)']];
+  rows.forEach((r,i)=>{ const y=38+i*36; s+=`<rect x="20" y="${y}" width="${W-40}" height="30" rx="8" fill="var(--panel)" stroke="${r[2]}" stroke-width="1.1"/><text x="34" y="${y+20}" fill="${r[2]}" font-size="12" font-family="monospace" font-weight="700">${r[0]}</text><text x="160" y="${y+20}" fill="var(--ink)" font-size="11" font-family="monospace">${r[1]}</text>`; });
+  document.getElementById('s3').innerHTML=R.svg(W,H,s,'정리');
+  document.getElementById('lab3').innerHTML=`실제 ROS2 시스템을 읽는 눈이 생겼어요. 마지막 — <b>너머에 무엇이 있나</b>.`;
+})();
+</script>
+</body>
+</html>

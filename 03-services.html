@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>03 · 서비스 — ROS2, 눈으로 보기</title>
+<link rel="stylesheet" href="shared/theme.css">
+<link rel="icon" type="image/svg+xml" href="shared/favicon.svg">
+<style>
+  .scene{cursor:default;}
+  .big{font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--ink); margin:8px 2px 0;}
+  .ctl{display:flex; align-items:center; gap:10px; margin:10px 0; flex-wrap:wrap;}
+  .ctl label{font-size:13px; color:var(--muted);}
+  svg{display:block; width:100%; background:var(--panel-2); border:1px solid var(--line); border-radius:12px;}
+  .toggles{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+  .toggles button{font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:8px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);cursor:pointer}
+  .toggles button.on{color:#0b0e14;font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topnav" id="topnav"></div>
+
+  <header>
+    <div class="tag" style="color:var(--v)">PART B · 통신 방식 — CH 03</div>
+    <h1>서비스 — 묻고 답 받기</h1>
+    <p class="intro">토픽은 한 방향으로 계속 흐르는 데이터에 맞아요. 하지만 <b>"지금 배터리 몇 %야?"</b>처럼 <b>한 번 묻고 그 자리에서 답을 받아야</b> 하는 일도 있죠. 이게 <b>서비스(service)</b>예요 — <b>요청(request)</b>을 보내면 <b>응답(response)</b>이 돌아오는 한 번의 왕복. 토픽과 결정적으로 다른 점은 <b>방향이 둘</b>(가고-오고)이고, 요청과 응답이 <b>짝지어진다</b>는 거예요(한 서비스의 서버는 하나, 부르는 클라이언트는 여럿일 수 있어요). 단, 답을 기다리는 동안 <b>멈춰버리면(블로킹)</b> 곤란해요 — 그래서 ROS2는 답을 "나중에 받는" 비동기 방식을 권해요. 잘못하면 <b>데드락</b>에 빠지거든요.</p>
+  </header>
+
+  <nav class="stepper" id="stepper">
+    <button data-s="0" class="active">00 · 한 번의 왕복</button>
+    <button data-s="1">01 · 기다리는 문제</button>
+    <button data-s="2">02 · 비동기 (future)</button>
+    <button data-s="3">03 · 정리</button>
+  </nav>
+
+  <!-- STEP 0 -->
+  <section class="panel show" data-panel="0">
+    <span class="kicker" style="color:var(--hot)">Step 00 — One Round Trip</span>
+    <h2>요청 하나, 응답 하나</h2>
+    <p class="lead">▶를 누르면 <b>클라이언트</b>가 <b>서버</b>에 요청을 보내고(노랑), 서버가 잠깐 처리한 뒤 <b>응답</b>을 돌려줘요(초록). 토픽의 1→다 흐름과 달리 서비스는 요청·응답이 <b>짝지어진 양방향</b> 왕복이에요. "배터리 잔량 조회", "모델 리셋"처럼 <b>즉답이 필요한 단발성</b> 요청에 써요.</p>
+    <div class="ctl"><button class="btn play" id="go0">▶ 요청 보내기</button> <button class="btn" id="rst0">↺ 리셋</button></div>
+    <div class="scene" id="s0"></div>
+    <p class="big" id="lab0"></p>
+    <p class="note" style="margin-top:6px">→ 위→아래는 <b>시간</b>이에요(시퀀스 다이어그램). 가는 화살표=요청, 오는 화살표=응답.</p>
+  </section>
+
+  <!-- STEP 1 -->
+  <section class="panel" data-panel="1">
+    <span class="kicker" style="color:var(--q)">Step 01 — The Waiting Problem</span>
+    <h2>답을 "그 자리에서" 기다리면 — 멈춘다</h2>
+    <p class="lead">가장 단순한 방식은 "요청 보내고 답 올 때까지 <b>멈춰 서서 기다리기</b>"(동기/blocking)예요. 서버가 답하는 동안 클라이언트는 <b>아무것도 못 해요</b> — 다른 메시지도 못 받고, 화면도 안 갱신되죠. 서버가 느리면(슬라이더로 조절) 그만큼 <b>통째로 굳어요</b>. 짧은 요청엔 괜찮지만, 길거나 잦으면 문제예요.</p>
+    <div class="ctl"><label>서버 처리시간 <span id="dvL" style="color:var(--hot)">0.4s</span></label><input type="range" id="dv" min="0.2" max="1.5" step="0.1" value="0.4" style="flex:1"><button class="btn play" id="go1">▶ 동기 호출</button></div>
+    <div class="scene" id="s1"></div>
+    <p class="big" id="lab1"></p>
+    <p class="note" style="margin-top:6px">→ 빨간 막대 구간 = 클라이언트가 <b>얼어붙은</b> 시간. 이 동안엔 다른 콜백도 안 돌아요.</p>
+  </section>
+
+  <!-- STEP 2 -->
+  <section class="panel" data-panel="2">
+    <span class="kicker" style="color:var(--v)">Step 02 — Async & the Deadlock Trap</span>
+    <h2>비동기 — 답은 "나중에" 받는다 (그리고 데드락 함정)</h2>
+    <p class="lead">권장 방식은 <b>비동기(call_async)</b>예요 — 요청만 보내고 <b>"미래(future)"</b>라는 빈 약속을 받아둔 뒤, 클라이언트는 <b>계속 일을 해요</b>. 답이 오면 그 future가 채워지죠. 두 방식을 토글해 비교하세요. 특히 <b style="color:var(--hot)">함정</b> 하나 — 콜백 <b>안에서</b> 다른 서비스를 동기로 부르고 기다리면, 답을 처리해야 할 바로 그 일꾼(스레드)이 <b>대기에 묶여</b> 영원히 안 풀려요(데드락). 이게 ROS2 초보의 단골 사고예요.</p>
+    <div class="toggles" id="md"></div>
+    <div class="scene" id="s2"></div>
+    <p class="big" id="lab2"></p>
+    <p class="note" style="margin-top:6px">→ 왜 데드락인지(누가 누구를 기다리나)는 <a href="10-single-thread.html" style="color:var(--q)">CH 10</a>의 단일 스레드에서 더 깊이 봐요. 지금은 "콜백 안 동기호출 = 위험"만 기억하면 돼요.</p>
+  </section>
+
+  <!-- STEP 3 -->
+  <section class="panel" data-panel="3">
+    <span class="kicker" style="color:var(--good)">Step 03 — Takeaways</span>
+    <h2>정리 — 서비스를 한 문장으로</h2>
+    <p class="lead">서비스는 <b>요청과 응답이 짝지어진 양방향 왕복(요청→응답)</b>이에요(서버는 하나). 즉답이 필요한 단발 요청에 쓰되, <b>답을 그 자리서 막고 기다리지 말고</b> 비동기로 받으세요 — 특히 콜백 안에서는요. 그런데 처리가 <b>오래</b> 걸리고 <b>진행률</b>도 알고 싶다면? 그건 서비스로도 부족해요 → 액션이에요.</p>
+    <div class="scene" id="s3"></div>
+    <p class="big" id="lab3"></p>
+    <p class="note" style="margin-top:14px">→ 다음 → <a href="04-actions.html" style="color:var(--q);font-weight:700">CH 04 · 액션, 오래 걸리는 일 맡기기</a></p>
+  </section>
+
+  <p class="foot">// 코드 없는 직관 입문 · <a href="index.html">목차</a></p>
+</div>
+
+<script src="shared/lib.js"></script>
+<script src="shared/lib-ros.js"></script>
+<script>
+VZ.mountTopnav('#topnav', '03 · 서비스');
+VZ.setupStepper();
+const R=VZ.ROS, fmt=VZ.fmt, clamp=VZ.clamp;
+const LL=[{x:110,label:'클라이언트',color:R.C.node},{x:350,label:'서버',color:R.C.topic}];
+
+// ===== STEP 0: one round trip (sequence) =====
+(function(){ const W=460,H=210; let cancel=null;
+  const msgs=[{from:0,to:1,y:70,label:'요청 (battery?)',kind:'req'},{from:1,to:0,y:150,label:'응답 (87%)',kind:'resp'}];
+  function render(p){ const upto=60+p*110; let s=R.sequence(W,H,LL,msgs,{upto});
+    // 서버 처리 막대 (요청 도착~응답 사이)
+    if(p>0.18){ const a=clamp((upto-70)/80,0,1); s+=`<rect x="${LL[1].x-6}" y="70" width="12" height="${(80*a).toFixed(0)}" fill="${R.C.topic}" opacity="0.5"/>`; }
+    document.getElementById('s0').innerHTML=R.svg(W,H,s,'서비스 한 번 왕복');
+    document.getElementById('lab0').innerHTML = p<0.3?'클라이언트가 <b>요청</b>을 보내요.': p<0.8?'서버가 <b>처리</b> 중 — 보라색 막대가 그 시간이에요.':'서버가 <b style="color:var(--good)">응답</b>을 돌려줬어요. 한 번의 왕복 완료.';
+  }
+  document.getElementById('go0').onclick=()=>{ if(cancel)cancel(); cancel=VZ.LA.tween(p=>render(p),2200,()=>render(1)); };
+  document.getElementById('rst0').onclick=()=>{ if(cancel)cancel(); render(0); };
+  render(0);
+})();
+
+// ===== STEP 1: sync blocking timeline =====
+(function(){ let cancel=null, dur=0.4;
+  const dv=document.getElementById('dv'), dvL=document.getElementById('dvL');
+  dv.oninput=()=>{ dur=+dv.value; dvL.textContent=dur.toFixed(1)+'s'; };
+  function render(p){ const W=460,H=190; const tmax=0.3+dur+0.3; // 전체 타임라인 길이(초)
+    // 클라이언트 타임라인: 0~0.3 일함, 0.3~0.3+dur 얼어붙음, 그 뒤 다시 일함
+    const lanes=['클라이언트','서버']; const now=p*tmax;
+    const tasks=[];
+    tasks.push({lane:'클라이언트',t0:0,dur:0.3,label:'일',state:'run'});
+    tasks.push({lane:'클라이언트',t0:0.3,dur:dur,label:'⛔ 대기(얼음)',state:'wait',color:R.C.drop});
+    tasks.push({lane:'클라이언트',t0:0.3+dur,dur:0.3,label:'재개',state:'done'});
+    tasks.push({lane:'서버',t0:0.3,dur:dur,label:'처리',state:'run',color:R.C.topic});
+    // 진행에 따라 보이는 부분만(clip via playhead)
+    let s=R.gantt(W,H,lanes,tasks.filter(t=>t.t0<now+0.001).map(t=>({...t,dur:Math.min(t.dur,now-t.t0)})),tmax,{playhead:now,tick:tmax/4});
+    document.getElementById('s1').innerHTML=R.svg(W,H,s,'동기 호출 블로킹 타임라인');
+    document.getElementById('lab1').innerHTML = now<0.3?'클라이언트가 일하는 중.': now<0.3+dur?`<b style="color:var(--drop)">얼어붙음</b> — 서버 응답을 기다리며 ${dur.toFixed(1)}초간 아무것도 못 해요.`:'응답 도착 → 재개. 대기한 만큼 통째로 굳어 있었어요.';
+  }
+  document.getElementById('go1').onclick=()=>{ if(cancel)cancel(); const tmax=0.3+dur+0.3; cancel=VZ.LA.tween(p=>render(p),tmax*1400,()=>render(1)); };
+  render(0);
+})();
+
+// ===== STEP 2: sync vs async vs deadlock =====
+(function(){ let mode=1, cancel=null; // 0 sync, 1 async, 2 deadlock
+  const MODES=[{k:'동기 호출',c:R.C.drop},{k:'비동기 (future) ✓',c:R.C.ok},{k:'콜백 안 동기 → 데드락 ✗',c:R.C.dead}];
+  const md=document.getElementById('md');
+  md.innerHTML=MODES.map((m,i)=>`<button data-i="${i}">${m.k}</button>`).join('');
+  function render(p){ const W=460,H=210; let s,msgs;
+    if(mode===0){ msgs=[{from:0,to:1,y:62,label:'요청',kind:'req'},{from:1,to:0,y:150,label:'응답',kind:'resp'}];
+      s=R.sequence(W,H,LL,msgs,{upto:60+p*110});
+      if(p>0.1&&p<0.95){ s+=`<rect x="${LL[0].x-50}" y="62" width="100" height="88" fill="${R.C.drop}" opacity="0.10"/><text x="${LL[0].x}" y="118" fill="${R.C.drop}" font-size="10" font-family="monospace" text-anchor="middle">대기(블로킹)</text>`; }
+    } else if(mode===1){ msgs=[{from:0,to:1,y:58,label:'call_async',kind:'req'},{from:1,to:0,y:158,label:'future 채워짐',kind:'resp'}];
+      s=R.sequence(W,H,LL,msgs,{upto:50+p*120});
+      // 클라이언트는 그동안 계속 일함 (작은 막대들)
+      for(let i=0;i<5;i++){ const yy=66+i*16; if(50+p*120>yy) s+=`<rect x="${LL[0].x-30}" y="${yy}" width="60" height="9" rx="2" fill="${R.C.ok}" opacity="0.7"/>`; }
+      s+=`<text x="${LL[0].x}" y="${H-4}" fill="${R.C.ok}" font-size="9.5" font-family="monospace" text-anchor="middle">계속 일함</text>`;
+    } else { // deadlock: 콜백 안에서 동기 호출
+      msgs=[{from:0,to:1,y:58,label:'콜백 안에서 요청',kind:'req'}];
+      s=R.sequence(W,H,[{x:110,label:'콜백(스레드)',color:R.C.node},{x:350,label:'서버',color:R.C.topic}],msgs,{upto:50+p*60});
+      if(p>0.4){ s+=`<rect x="60" y="86" width="340" height="${H-104}" rx="10" fill="${R.C.dead}" opacity="0.10" stroke="${R.C.dead}" stroke-dasharray="4 3"/>`;
+        s+=`<text x="${W/2}" y="${H/2+8}" fill="${R.C.dead}" font-size="13" font-family="monospace" text-anchor="middle" font-weight="700">⛔ 데드락</text>`;
+        s+=`<text x="${W/2}" y="${H/2+26}" fill="var(--muted)" font-size="10" font-family="monospace" text-anchor="middle">응답을 처리할 일꾼이 대기에 묶임 → 영원히 안 풀림</text>`;
+      }
+    }
+    document.getElementById('s2').innerHTML=R.svg(W,H,s,MODES[mode].k);
+    document.querySelectorAll('#md button').forEach((b,i)=>{ const on=i===mode; b.classList.toggle('on',on); b.style.background=on?MODES[i].c:'var(--panel-2)'; b.style.color=on?'#0b0e14':'var(--muted)'; });
+    document.getElementById('lab2').innerHTML = mode===0?'동기: 답 올 때까지 클라이언트가 <b style="color:var(--drop)">멈춤</b>.': mode===1?'비동기: 요청만 보내고 <b style="color:var(--good)">계속 일함</b> — 답이 오면 future가 채워져요.':'콜백 안 동기 호출: 답을 처리할 일꾼이 스스로를 기다려 <b style="color:var(--dead)">영영 멈춤</b>.';
+  }
+  md.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return; mode=+b.dataset.i; if(cancel)cancel(); cancel=VZ.LA.tween(p=>render(p),2200,()=>render(1)); });
+  function loop(){ cancel=VZ.LA.tween(p=>render(p),2400,()=>render(1)); }
+  loop();
+})();
+
+// ===== STEP 3: takeaways =====
+(function(){ const W=460,H=150;
+  const rows=[['토픽','계속 흐름','1→다, 단방향','var(--q)'],['서비스','한 번 왕복','짝지음, 양방향','var(--good)']];
+  let s=`<text x="${W/2}" y="24" fill="var(--good)" font-size="13" font-family="monospace" text-anchor="middle" font-weight="700">서비스 = 즉답이 필요한 단발 요청 (비동기로!)</text>`;
+  rows.forEach((r,i)=>{ const y=40+i*46; s+=`<rect x="20" y="${y}" width="${W-40}" height="38" rx="9" fill="var(--panel)" stroke="${r[3]}" stroke-width="1.2"/><text x="34" y="${y+17}" fill="${r[3]}" font-size="13" font-family="monospace" font-weight="700">${r[0]}</text><text x="120" y="${y+17}" fill="var(--ink)" font-size="11.5" font-family="monospace">${r[1]}</text><text x="${W-34}" y="${y+17}" fill="var(--muted)" font-size="10.5" font-family="monospace" text-anchor="end">${r[2]}</text>`;
+    s+=`<text x="34" y="${y+31}" fill="var(--muted)" font-size="9.5" font-family="monospace">${i===0?'센서·상태처럼 끊임없는 데이터':'배터리 조회·리셋처럼 즉답 단발'}</text>`; });
+  document.getElementById('s3').innerHTML=R.svg(W,H,s,'정리');
+  document.getElementById('lab3').innerHTML=`오래 걸리고 <b>진행률</b>이 필요하면 서비스로도 부족해요 → <b style="color:var(--good)">액션</b>.`;
+})();
+</script>
+</body>
+</html>

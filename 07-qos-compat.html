@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>07 · QoS 불일치 — ROS2, 눈으로 보기</title>
+<link rel="stylesheet" href="shared/theme.css">
+<link rel="icon" type="image/svg+xml" href="shared/favicon.svg">
+<style>
+  .scene{cursor:default;}
+  .big{font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--ink); margin:8px 2px 0;}
+  .ctl{display:flex; align-items:center; gap:10px; margin:10px 0; flex-wrap:wrap;}
+  svg{display:block; width:100%; background:var(--panel-2); border:1px solid var(--line); border-radius:12px;}
+  .qos{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:10px 0}
+  .qos .col{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+  .qos h4{margin:0 0 8px;font-size:13px;font-family:'JetBrains Mono',monospace}
+  .qos .opt{display:flex;gap:6px;margin:6px 0}
+  .qos .opt button{flex:1;font-family:'JetBrains Mono',monospace;font-size:11.5px;padding:6px 4px;border-radius:7px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);cursor:pointer}
+  .qos .opt button.on{color:#0b0e14;font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topnav" id="topnav"></div>
+
+  <header>
+    <div class="tag" style="color:var(--hot)">PART C · QoS — CH 07 · 핵심</div>
+    <h1>QoS 불일치 — 왜 안 들어와?</h1>
+    <p class="intro">ROS2 입문자가 가장 많이 막히는 순간 — <b>"토픽 이름도 맞고 타입도 맞는데 데이터가 안 들어와요."</b> 범인은 십중팔구 <b>QoS 불일치</b>예요. 발행자와 구독자는 각자 <b>"이렇게 주고받자"는 약속(QoS)</b>을 내거는데, 이 약속이 안 맞으면 <b>연결 자체가 조용히 안 돼요</b> — 에러도 거의 안 나서 더 헷갈리죠. 규칙은 의외로 단순해요: <b>구독이 요구하는 게 발행이 내건 것보다 빡세면 안 돼요</b>("요구 ≤ 제공"). 이 챕터에서 그 규칙을 직접 만지며 "왜 안 들어오는지"를 끝장내요.</p>
+  </header>
+
+  <nav class="stepper" id="stepper">
+    <button data-s="0" class="active">00 · 조용한 실패</button>
+    <button data-s="1">01 · 직접 맞춰보기</button>
+    <button data-s="2">02 · 호환 규칙표</button>
+    <button data-s="3">03 · 정리</button>
+  </nav>
+
+  <!-- STEP 0 -->
+  <section class="panel show" data-panel="0">
+    <span class="kicker" style="color:var(--hot)">Step 00 — The Silent Failure</span>
+    <h2>같은 토픽인데 — 한쪽은 흐르고 한쪽은 안 흐른다</h2>
+    <p class="lead">두 상황을 ▶로 비교하세요. 둘 다 <b>이름·타입은 같아요</b>. ⓐ 발행 Reliable → 구독 Best Effort: <b>흘러요</b>(느슨한 요구는 빡센 제공을 받아들임). ⓑ 발행 Best Effort → 구독 Reliable: <b>안 흘러요</b> — 구독이 "다 받겠다"는데 발행이 "놓쳐도 됨"이라 약속이 안 맞아 <b>연결조차 안 돼요</b>. 그런데 에러 메시지는 없어요. 그냥 조용하죠.</p>
+    <div class="ctl"><button class="btn" id="caseA">ⓐ Rel → BestEffort</button> <button class="btn" id="caseB">ⓑ BestEffort → Rel</button> <button class="btn play" id="go0">▶ 전송</button></div>
+    <div class="scene" id="s0"></div>
+    <p class="big" id="lab0"></p>
+    <p class="note" style="margin-top:6px">→ 이 "조용함"이 함정이에요. 데이터가 안 오면 이름·타입보다 먼저 <b>QoS</b>를 의심하세요.</p>
+  </section>
+
+  <!-- STEP 1 -->
+  <section class="panel" data-panel="1">
+    <span class="kicker" style="color:var(--q)">Step 01 — Match Them Yourself</span>
+    <h2>발행·구독 QoS를 직접 맞춰보기</h2>
+    <p class="lead">발행자와 구독자의 <b>신뢰성</b>과 <b>내구성</b>을 바꿔가며 연결되는지 보세요. 판정과 <b>이유</b>가 실시간으로 나와요. 직접 만지면 규칙이 몸에 배요 — 핵심은 <b>구독의 요구가 발행의 제공보다 빡세면 ✗</b>.</p>
+    <div class="qos" id="qos1"></div>
+    <div class="scene" id="s1"></div>
+    <p class="big" id="lab1"></p>
+    <p class="note" style="margin-top:6px">→ <b>내구성(Durability)</b>: Transient Local은 "내가 붙기 <b>전에</b> 발행된 마지막 값도 받겠다". 발행이 Volatile(안 보관)이면 그 요구를 못 맞춰 ✗.</p>
+  </section>
+
+  <!-- STEP 2 -->
+  <section class="panel" data-panel="2">
+    <span class="kicker" style="color:var(--v)">Step 02 — The Compatibility Table</span>
+    <h2>호환 규칙표 — 한눈에</h2>
+    <p class="lead">신뢰성의 모든 조합(발행×구독)을 표로 봐요. 외울 한 줄: <b>"느슨한 구독은 다 받고, 빡센 구독은 빡센 발행만 받는다"</b>. Best Effort가 느슨, Reliable이 빡셈이에요. 셀을 눌러 그 조합이 왜 되는지/안 되는지 확인하세요.</p>
+    <div class="scene" id="s2"></div>
+    <p class="big" id="lab2"></p>
+    <p class="note" style="margin-top:6px">→ 같은 논리가 <b>내구성</b>에도 적용돼요: Volatile(느슨)↔Transient Local(빡셈). "요구 ≤ 제공"이면 OK.</p>
+  </section>
+
+  <!-- STEP 3 -->
+  <section class="panel" data-panel="3">
+    <span class="kicker" style="color:var(--good)">Step 03 — Takeaways</span>
+    <h2>정리 — "왜 안 들어와?"의 답</h2>
+    <p class="lead">이름·타입이 맞는데 데이터가 안 오면 <b>QoS 불일치</b>를 의심하세요. 규칙은 <b>"구독의 요구 ≤ 발행의 제공"</b> — 빡센 구독(Reliable·Transient Local)은 빡센 발행이 있어야만 연결돼요. 디버깅 땐 <code>ros2 topic info /토픽 -v</code>로 양쪽 QoS를 직접 비교하세요. 다음은 연결이 됐어도 생기는 또 다른 문제 — 처리가 밀릴 때 메시지가 <b>큐에 쌓이고 버려지는</b> 이야기예요.</p>
+    <div class="scene" id="s3"></div>
+    <p class="big" id="lab3"></p>
+    <p class="note" style="margin-top:14px">→ 다음 → <a href="08-queue-drop.html" style="color:var(--q);font-weight:700">CH 08 · 큐와 드롭 — 밀리면 버린다</a></p>
+  </section>
+
+  <p class="foot">// 코드 없는 직관 입문 · <a href="index.html">목차</a></p>
+</div>
+
+<script src="shared/lib.js"></script>
+<script src="shared/lib-ros.js"></script>
+<script>
+VZ.mountTopnav('#topnav', '07 · QoS 불일치');
+VZ.setupStepper();
+const R=VZ.ROS, fmt=VZ.fmt, clamp=VZ.clamp;
+
+// ===== STEP 0: silent failure (two cases) =====
+(function(){ let cse='A', cancel=null;
+  const W=460,H=190, pubX=24,subX=400,chY=96;
+  function pubSub(){ return cse==='A'
+    ? {pub:{reliability:'reliable',durability:'volatile'}, sub:{reliability:'best_effort',durability:'volatile'}}
+    : {pub:{reliability:'best_effort',durability:'volatile'}, sub:{reliability:'reliable',durability:'volatile'}}; }
+  function render(p){ const {pub,sub}=pubSub(); const v=R.compatQoS(pub,sub); let s='';
+    s+=R.box(pubX,chY-26,76,52,'발행',{color:R.C.node,sub:pub.reliability==='reliable'?'Reliable':'BestEffort'});
+    s+=R.box(subX-52,chY-26,76,52,'구독',{color:R.C.node,sub:sub.reliability==='reliable'?'Reliable':'BestEffort'});
+    s+=R.edge(pubX+76,chY,subX-52,chY,{color:v.ok?'var(--line)':R.C.drop,lw:1.8,dash:v.ok?null:'5 4'});
+    if(v.ok){ if(p>0.01&&p<0.99){ const x=pubX+76+(subX-52-(pubX+76))*p; s+=R.packet(x,chY,{}); } s+=`<text x="${W/2}" y="${chY-34}" fill="${R.C.ok}" font-size="13" font-family="monospace" text-anchor="middle" font-weight="700">✓ 연결됨 — 메시지가 흐른다</text>`; }
+    else { s+=`<text x="${W/2}" y="${chY-34}" fill="${R.C.drop}" font-size="13" font-family="monospace" text-anchor="middle" font-weight="700">✗ 연결 안 됨 (조용히)</text>`;
+      s+=`<text x="${W/2}" y="${H-16}" fill="var(--muted)" font-size="10.5" font-family="monospace" text-anchor="middle">${v.reasons[0]||''}</text>`; }
+    document.getElementById('s0').innerHTML=R.svg(W,H,s,'QoS 조용한 실패');
+    document.getElementById('lab0').innerHTML = cse==='A'
+      ? '<b>ⓐ</b> 구독이 <b>느슨</b>(Best Effort)하니 발행의 <b>빡센</b>(Reliable) 제공을 <b style="color:var(--good)">받아들여요</b>.'
+      : '<b>ⓑ</b> 구독이 <b>빡센데</b>(Reliable) 발행은 <b>느슨</b>(Best Effort) — 요구를 못 맞춰 <b style="color:var(--drop)">연결 실패</b>.';
+  }
+  document.getElementById('caseA').onclick=()=>{ cse='A'; if(cancel)cancel(); render(0); };
+  document.getElementById('caseB').onclick=()=>{ cse='B'; if(cancel)cancel(); render(0); };
+  document.getElementById('go0').onclick=()=>{ if(cancel)cancel(); cancel=VZ.LA.tween(p=>render(p),1800,()=>render(1)); };
+  render(0);
+})();
+
+// ===== STEP 1: interactive QoS matcher =====
+(function(){ const W=460,H=140;
+  const st={pub:{reliability:'reliable',durability:'volatile'},sub:{reliability:'reliable',durability:'volatile'}};
+  const REL=[['reliable','Reliable'],['best_effort','Best Effort']], DUR=[['volatile','Volatile'],['transient_local','Transient Local']];
+  function panel(side){ const o=st[side]; return `<div class="col"><h4 style="color:${side==='pub'?R.C.node:R.C.topic}">${side==='pub'?'발행자 (제공)':'구독자 (요구)'}</h4>`+
+    `<div style="font-size:10px;color:var(--muted);margin-bottom:2px">신뢰성</div><div class="opt">`+REL.map(r=>`<button data-s="${side}" data-f="reliability" data-v="${r[0]}" class="${o.reliability===r[0]?'on':''}">${r[1]}</button>`).join('')+`</div>`+
+    `<div style="font-size:10px;color:var(--muted);margin:6px 0 2px">내구성</div><div class="opt">`+DUR.map(d=>`<button data-s="${side}" data-f="durability" data-v="${d[0]}" class="${o.durability===d[0]?'on':''}">${d[1]}</button>`).join('')+`</div></div>`; }
+  function paint(){ document.getElementById('qos1').innerHTML=panel('pub')+panel('sub');
+    document.querySelectorAll('#qos1 button').forEach(b=>{ const o=st[b.dataset.s]; const on=o[b.dataset.f]===b.dataset.v; b.classList.toggle('on',on); b.style.background=on?(b.dataset.s==='pub'?R.C.node:R.C.topic):'var(--panel-2)'; b.style.color=on?'#0b0e14':'var(--muted)'; });
+  }
+  function render(){ const v=R.compatQoS(st.pub,st.sub); let s='';
+    const col=v.ok?R.C.ok:R.C.drop;
+    const ab=o=>(o.reliability==='reliable'?'Rel':'BE')+'·'+(o.durability==='transient_local'?'TL':'V');
+    s+=R.box(30,46,90,48,'발행',{color:R.C.node,sub:ab(st.pub)});
+    s+=R.box(340,46,90,48,'구독',{color:R.C.topic,sub:ab(st.sub)});
+    s+=R.edge(120,70,340,70,{color:v.ok?'var(--line)':R.C.drop,lw:2,dash:v.ok?null:'5 4'});
+    s+=`<text x="${W/2}" y="34" fill="${col}" font-size="15" font-family="monospace" text-anchor="middle" font-weight="700">${v.ok?'✓ 호환 — 연결됨':'✗ 불일치 — 연결 안 됨'}</text>`;
+    if(!v.ok) v.reasons.forEach((r,i)=>{ s+=`<text x="${W/2}" y="${108+i*15}" fill="var(--muted)" font-size="9.5" font-family="monospace" text-anchor="middle">• ${r}</text>`; });
+    else s+=`<text x="${W/2}" y="110" fill="var(--muted)" font-size="10" font-family="monospace" text-anchor="middle">구독의 요구 ≤ 발행의 제공</text>`;
+    document.getElementById('s1').innerHTML=R.svg(W,H,s,'QoS 매칭');
+    document.getElementById('lab1').innerHTML = v.ok?'<b style="color:var(--good)">호환</b> — 메시지가 흘러요.':`<b style="color:var(--drop)">불일치 ${v.reasons.length}건</b> — ${v.reasons[0]}`;
+  }
+  document.getElementById('qos1').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return; st[b.dataset.s][b.dataset.f]=b.dataset.v; paint(); render(); });
+  paint(); render();
+})();
+
+// ===== STEP 2: compatibility table =====
+(function(){ const W=460,H=200; let selCell=null;
+  const opts=['best_effort','reliable']; const lab={best_effort:'Best Effort',reliable:'Reliable'};
+  function render(){ let s='';
+    const x0=150,y0=64,cw=130,ch=46;
+    s+=`<text x="${x0+cw}" y="30" fill="var(--node)" font-size="11" font-family="monospace" text-anchor="middle" font-weight="700">구독 (요구) →</text>`;
+    s+=`<text x="40" y="${y0+ch}" fill="${R.C.node}" font-size="11" font-family="monospace" font-weight="700">발행</text>`;
+    s+=`<text x="40" y="${y0+ch+15}" fill="${R.C.node}" font-size="11" font-family="monospace">(제공)↓</text>`;
+    // 헤더
+    opts.forEach((c,ci)=>{ s+=`<text x="${x0+ci*cw+cw/2}" y="${y0-8}" fill="var(--muted)" font-size="10.5" font-family="monospace" text-anchor="middle">${lab[c]}</text>`; });
+    // 셀
+    opts.forEach((pub,ri)=>{ s+=`<text x="${x0-10}" y="${y0+ri*ch+ch/2+4}" fill="var(--muted)" font-size="10.5" font-family="monospace" text-anchor="end">${lab[pub]}</text>`;
+      opts.forEach((sub,ci)=>{ const v=R.compatQoS({reliability:pub,durability:'volatile'},{reliability:sub,durability:'volatile'});
+        const x=x0+ci*cw, y=y0+ri*ch; const isSel=selCell&&selCell[0]===ri&&selCell[1]===ci;
+        s+=`<rect class="cell" data-r="${ri}" data-c="${ci}" x="${x}" y="${y}" width="${cw-6}" height="${ch-6}" rx="7" fill="${v.ok?'rgba(52,211,153,.12)':'rgba(251,113,133,.12)'}" stroke="${v.ok?R.C.ok:R.C.drop}" stroke-width="${isSel?2.6:1.3}" style="cursor:pointer"/>`;
+        s+=`<text x="${x+(cw-6)/2}" y="${y+(ch-6)/2+5}" fill="${v.ok?R.C.ok:R.C.drop}" font-size="16" font-family="monospace" text-anchor="middle" font-weight="700" style="pointer-events:none">${v.ok?'✓':'✗'}</text>`;
+      }); });
+    document.getElementById('s2').innerHTML=R.svg(W,H,s,'QoS 호환표');
+    let msg='셀을 눌러 그 조합을 확인하세요. 단 한 칸만 ✗ — <b>발행 BE × 구독 Reliable</b>.';
+    if(selCell){ const pub=opts[selCell[0]],sub=opts[selCell[1]]; const v=R.compatQoS({reliability:pub,durability:'volatile'},{reliability:sub,durability:'volatile'});
+      msg = v.ok?`발행 ${lab[pub]} → 구독 ${lab[sub]}: <b style="color:var(--good)">✓</b> — 구독 요구가 발행 제공 이하.`:`발행 ${lab[pub]} → 구독 ${lab[sub]}: <b style="color:var(--drop)">✗</b> — ${v.reasons[0]}`; }
+    document.getElementById('lab2').innerHTML=msg;
+  }
+  document.getElementById('s2').addEventListener('click',e=>{ const c=e.target.closest('.cell'); if(!c)return; selCell=[+c.dataset.r,+c.dataset.c]; render(); });
+  render();
+})();
+
+// ===== STEP 3: takeaways =====
+(function(){ const W=460,H=140;
+  let s=`<text x="${W/2}" y="26" fill="var(--good)" font-size="13.5" font-family="monospace" text-anchor="middle" font-weight="700">규칙 한 줄: 구독의 요구 ≤ 발행의 제공</text>`;
+  s+=`<text x="${W/2}" y="50" fill="var(--muted)" font-size="11" font-family="monospace" text-anchor="middle">느슨 ↔ 빡셈:  Best Effort ＜ Reliable  ·  Volatile ＜ Transient Local</text>`;
+  const pts=[['데이터 안 와요?','QoS부터 의심'],['디버깅','ros2 topic info -v'],['빡센 구독','빡센 발행 필요'],['조용한 실패','에러 없음']];
+  pts.forEach((p,i)=>{ const x=24+(i%2)*(W/2-8), y=66+Math.floor(i/2)*34; s+=`<rect x="${x}" y="${y}" width="${W/2-40}" height="28" rx="7" fill="var(--panel)" stroke="var(--hot)" stroke-width="1.1"/><text x="${x+12}" y="${y+12}" fill="var(--ink)" font-size="11" font-family="monospace" font-weight="700">${p[0]}</text><text x="${x+12}" y="${y+24}" fill="var(--muted)" font-size="9.5" font-family="monospace">${p[1]}</text>`; });
+  document.getElementById('s3').innerHTML=R.svg(W,H,s,'정리');
+  document.getElementById('lab3').innerHTML=`연결이 됐어도 끝이 아니에요 — 처리가 밀리면 <b style="color:var(--hot)">큐</b>가 차고 메시지가 버려져요.`;
+})();
+</script>
+</body>
+</html>

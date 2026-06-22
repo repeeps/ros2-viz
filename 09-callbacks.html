@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>09 · 콜백과 spin — ROS2, 눈으로 보기</title>
+<link rel="stylesheet" href="shared/theme.css">
+<link rel="icon" type="image/svg+xml" href="shared/favicon.svg">
+<style>
+  .scene{cursor:default;}
+  .big{font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--ink); margin:8px 2px 0;}
+  .ctl{display:flex; align-items:center; gap:10px; margin:10px 0; flex-wrap:wrap;}
+  .ctl label{font-size:13px; color:var(--muted);}
+  svg{display:block; width:100%; background:var(--panel-2); border:1px solid var(--line); border-radius:12px;}
+  .toggles{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+  .toggles button{font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:8px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);cursor:pointer}
+  .toggles button.on{color:#0b0e14;font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topnav" id="topnav"></div>
+
+  <header>
+    <div class="tag" style="color:var(--hot)">PART D · Executor — CH 09 · 핵심</div>
+    <h1>콜백과 spin</h1>
+    <p class="intro">"메시지가 도착하면 내 콜백이 실행된다" — 맞는 말이지만, <b>언제</b> 실행될까요? 놀랍게도 <b>메시지가 도착한 순간이 아니에요</b>. 도착한 메시지는 일단 <b>큐에 들어가</b> 기다리고, 여러분의 코드가 <b>spin()</b>을 돌릴 때 비로소 큐에서 꺼내져 콜백이 불려요. spin은 ROS2 노드의 <b>심장박동</b>이에요 — 이게 안 돌면 메시지가 와도 콜백은 영영 안 불려요. "구독은 만들었는데 콜백이 안 불린다"는 초보의 흔한 사고가 바로 spin을 안 돌렸기 때문이죠. 이 PART는 ROS2에서 가장 헷갈리는 부분 — <b>콜백이 언제·어떻게·몇 개씩 도는가</b>를 다뤄요.</p>
+  </header>
+
+  <nav class="stepper" id="stepper">
+    <button data-s="0" class="active">00 · spin이 깨운다</button>
+    <button data-s="1">01 · 한 번 vs 계속</button>
+    <button data-s="2">02 · 여러 콜백, 한 입구</button>
+    <button data-s="3">03 · 정리</button>
+  </nav>
+
+  <!-- STEP 0 -->
+  <section class="panel show" data-panel="0">
+    <span class="kicker" style="color:var(--hot)">Step 00 — Spin Wakes Them</span>
+    <h2>메시지는 도착해도 — spin이 꺼내야 콜백이 돈다</h2>
+    <p class="lead">메시지가 큐에 쌓여 있어요(왼쪽). <b>spin 끄기</b> 상태에선 아무리 쌓여도 콜백이 안 돌아요. <b>spin 켜기</b>를 누르면 그제서야 큐에서 하나씩 꺼내 콜백이 실행돼요(오른쪽 처리됨). spin은 "이제 쌓인 일 처리해"라고 노드를 깨우는 신호예요.</p>
+    <div class="ctl"><button class="btn" id="spin0">▶ spin 켜기</button> <button class="btn" id="stop0">⏸ spin 끄기</button> <button class="btn" id="rst0">↺ 리셋</button></div>
+    <div class="scene" id="s0"></div>
+    <p class="big" id="lab0"></p>
+    <p class="note" style="margin-top:6px">→ <code>rclpy.spin(node)</code> / <code>rclcpp::spin(node)</code>가 이 "심장박동"이에요. 이게 없으면 노드는 메시지를 받고도 처리를 안 해요.</p>
+  </section>
+
+  <!-- STEP 1 -->
+  <section class="panel" data-panel="1">
+    <span class="kicker" style="color:var(--q)">Step 01 — Once vs Continuous</span>
+    <h2>spin_once vs spin — 한 번만 vs 계속</h2>
+    <p class="lead"><b>spin_once</b>는 "지금 준비된 것 <b>한 묶음만</b> 처리하고 손 떼기", <b>spin</b>은 "계속 돌며 오는 족족 처리하기"예요. <b>spin_once</b> 버튼을 누를 때마다 큐가 한 칸씩 줄고, <b>spin</b>을 켜면 큐가 알아서 비워져요. 대부분은 spin을 그냥 켜두지만, 직접 박자를 제어하고 싶을 땐 spin_once를 루프에서 불러요.</p>
+    <div class="ctl"><button class="btn" id="once1">spin_once (한 번)</button> <button class="btn play" id="spin1">▶ spin (계속)</button> <button class="btn" id="stop1">⏸ 멈춤</button> <button class="btn" id="add1">+ 메시지 도착</button></div>
+    <div class="scene" id="s1"></div>
+    <p class="big" id="lab1"></p>
+    <p class="note" style="margin-top:6px">→ 처리 속도(CH 08의 "처리 rate")는 결국 <b>spin이 콜백을 얼마나 빨리 꺼내 도느냐</b>예요.</p>
+  </section>
+
+  <!-- STEP 2 -->
+  <section class="panel" data-panel="2">
+    <span class="kicker" style="color:var(--v)">Step 02 — Many Sources, One Door</span>
+    <h2>여러 콜백, 하나의 입구 — executor</h2>
+    <p class="lead">노드엔 콜백이 여럿이에요 — 구독 콜백, <b>타이머</b> 콜백, 서비스 콜백… 이들이 각자 준비되면 모두 <b>한 곳</b>으로 모여요. 그 관문이 <b>executor(실행기)</b>예요. executor가 "준비된 콜백"을 골라 실행하죠. ▶를 누르면 세 종류의 콜백이 준비되고, executor가 차례로 꺼내 도는 걸 봐요. <b>누가 먼저 도느냐</b>는 다음 챕터(단일/멀티 스레드)의 주제예요.</p>
+    <div class="ctl"><button class="btn play" id="go2">▶ 실행</button> <button class="btn" id="rst2">↺ 리셋</button></div>
+    <div class="scene" id="s2"></div>
+    <p class="big" id="lab2"></p>
+    <p class="note" style="margin-top:6px">→ spin()을 부르면 사실 그 안의 <b>executor</b>가 돌아요. "spin = executor를 굴리는 것"이라 봐도 돼요.</p>
+  </section>
+
+  <!-- STEP 3 -->
+  <section class="panel" data-panel="3">
+    <span class="kicker" style="color:var(--good)">Step 03 — Takeaways</span>
+    <h2>정리 — 콜백과 spin</h2>
+    <p class="lead">메시지 도착 ≠ 콜백 실행. 도착한 일은 큐에 쌓이고, <b>spin(=executor)</b>이 꺼내 도려야 콜백이 불려요. 여러 콜백(구독·타이머·서비스)이 한 executor로 모이고요. 그렇다면 executor가 콜백을 <b>한 번에 하나씩</b> 돌까요, <b>동시에 여러 개</b> 돌까요? 그리고 콜백 하나가 <b>오래 걸리면</b> 어떻게 될까요? 이게 단일 스레드 executor의 이야기예요.</p>
+    <div class="scene" id="s3"></div>
+    <p class="big" id="lab3"></p>
+    <p class="note" style="margin-top:14px">→ 다음 → <a href="10-single-thread.html" style="color:var(--q);font-weight:700">CH 10 · 단일 스레드 — 한 줄로 줄서기</a></p>
+  </section>
+
+  <p class="foot">// 코드 없는 직관 입문 · <a href="index.html">목차</a></p>
+</div>
+
+<script src="shared/lib.js"></script>
+<script src="shared/lib-ros.js"></script>
+<script>
+VZ.mountTopnav('#topnav', '09 · 콜백과 spin');
+VZ.setupStepper();
+const R=VZ.ROS, fmt=VZ.fmt, clamp=VZ.clamp;
+
+// ===== STEP 0: spin pulls from queue =====
+(function(){ const W=460,H=200, depth=6; let q=4, spinning=false, processed=0;
+  function render(){ let s='';
+    s+=`<text x="90" y="40" fill="var(--muted)" font-size="11" font-family="monospace" text-anchor="middle">도착 큐</text>`;
+    s+=R.queue(28, 56, depth, q, {color:R.C.msg, vertical:false, slotW:20, slotH:24});
+    // spin 엔진 (가운데)
+    const sc = spinning?R.C.ok:R.C.dead;
+    s+=`<circle cx="${W/2}" cy="100" r="34" fill="none" stroke="${sc}" stroke-width="2.5"/>`;
+    s+=`<text x="${W/2}" y="96" fill="${sc}" font-size="13" font-family="monospace" text-anchor="middle" font-weight="700">spin</text>`;
+    s+=`<text x="${W/2}" y="112" fill="${sc}" font-size="10" font-family="monospace" text-anchor="middle">${spinning?'돌는 중':'멈춤'}</text>`;
+    // 콜백 처리됨 (오른쪽)
+    s+=`<text x="${W-72}" y="40" fill="var(--muted)" font-size="11" font-family="monospace" text-anchor="middle">콜백 처리됨</text>`;
+    s+=`<text x="${W-72}" y="100" fill="${R.C.ok}" font-size="22" font-family="monospace" text-anchor="middle" font-weight="700">${processed}</text>`;
+    s+=R.edge(180,100, W/2-36,100,{color:'var(--line)',lw:1.6});
+    s+=R.edge(W/2+36,100, W-110,100,{color:spinning?R.C.ok:'var(--line)',lw:1.6,dash:spinning?null:'4 3'});
+    s+=`<text x="${W/2}" y="170" fill="var(--muted)" font-size="11" font-family="monospace" text-anchor="middle">큐 ${q}개 대기 · 처리 ${processed}개</text>`;
+    document.getElementById('s0').innerHTML=R.svg(W,H,s,'spin이 큐에서 콜백을 꺼냄');
+    document.getElementById('lab0').innerHTML = !spinning&&q>0 ? `메시지 ${q}개가 큐에 쌓였지만 <b style="color:var(--dead)">spin이 멈춰</b> 콜백이 안 돌아요.` : spinning? '<b style="color:var(--good)">spin이 돌며</b> 큐에서 하나씩 꺼내 콜백을 실행해요.' : '큐가 비었어요. + 또는 리셋으로 메시지를 채워보세요.';
+  }
+  // 타이머 루프 (spin 켜졌을 때 0.5s마다 1개 처리)
+  let timer=null;
+  function startTimer(){ if(timer)return; timer=true; (function step(){ if(!spinning){timer=null;return;} if(q>0){q--;processed++;render();} VZ.LA.tween(()=>{},500,()=>{ if(spinning)step(); else timer=null; }); })(); }
+  document.getElementById('spin0').onclick=()=>{ spinning=true; render(); startTimer(); };
+  document.getElementById('stop0').onclick=()=>{ spinning=false; render(); };
+  document.getElementById('rst0').onclick=()=>{ spinning=false; q=4; processed=0; render(); };
+  render();
+})();
+
+// ===== STEP 1: spin_once vs spin =====
+(function(){ const W=460,H=190, depth=8; let q=5, processed=0, spinning=false, timer=null;
+  function render(){ let s='';
+    s+=`<text x="${W/2}" y="34" fill="var(--muted)" font-size="11" font-family="monospace" text-anchor="middle">대기 큐 (depth ${depth})</text>`;
+    s+=R.queue(W/2-((22+3)*depth)/2, 48, depth, q, {color:R.C.msg, slotW:22, slotH:24});
+    s+=R.progress(80,96,W-160,q/depth,{color:R.C.msg});
+    s+=`<text x="${W/2}" y="134" fill="${spinning?R.C.ok:'var(--muted)'}" font-size="12" font-family="monospace" text-anchor="middle" font-weight="${spinning?700:400}">${spinning?'spin: 계속 처리 중':'멈춤 (spin_once로 한 번씩, 또는 spin 켜기)'}</text>`;
+    s+=`<text x="${W/2}" y="158" fill="var(--ink)" font-size="11.5" font-family="monospace" text-anchor="middle">큐 ${q} · 처리 ${processed}</text>`;
+    document.getElementById('s1').innerHTML=R.svg(W,H,s,'spin_once vs spin');
+    document.getElementById('lab1').innerHTML = q===0?'큐가 비었어요 — "+ 메시지 도착"으로 더 채워보세요.': spinning?'<b style="color:var(--good)">spin</b>이 큐를 알아서 비워가요.':'<b>spin_once</b>를 누를 때마다 한 칸씩 처리돼요.';
+  }
+  function startTimer(){ if(timer)return; timer=true; (function step(){ if(!spinning){timer=null;return;} if(q>0){q--;processed++;render();} VZ.LA.tween(()=>{},450,()=>{ if(spinning)step(); else timer=null; }); })(); }
+  document.getElementById('once1').onclick=()=>{ if(q>0){q--;processed++;render();} };
+  document.getElementById('spin1').onclick=()=>{ spinning=true; render(); startTimer(); };
+  document.getElementById('stop1').onclick=()=>{ spinning=false; render(); };
+  document.getElementById('add1').onclick=()=>{ q=Math.min(depth,q+2); render(); };
+  render();
+})();
+
+// ===== STEP 2: many callbacks → one executor =====
+(function(){ const W=460,H=200; let cancel=null;
+  // 3 소스 → executor → 처리. 준비 시각 다름.
+  const SRC=[{label:'구독 /image',c:R.C.q||'var(--q)',ready:0.1},{label:'타이머 10Hz',c:'var(--v)',ready:0.35},{label:'서비스 요청',c:R.C.ok,ready:0.6}];
+  function render(p){ let s='';
+    const exX=W/2, exY=100;
+    // executor 박스
+    s+=`<rect x="${exX-50}" y="${exY-26}" width="100" height="52" rx="10" fill="var(--panel)" stroke="var(--hot)" stroke-width="2"/><text x="${exX}" y="${exY-4}" fill="var(--hot)" font-size="12" font-family="monospace" text-anchor="middle" font-weight="700">executor</text><text x="${exX}" y="${exY+12}" fill="var(--muted)" font-size="9" font-family="monospace" text-anchor="middle">준비된 콜백 실행</text>`;
+    SRC.forEach((src,i)=>{ const y=40+i*54; const ready=p>src.ready; s+=R.box(20,y-18,120,36,'',{color:ready?src.c:'var(--line)',dim:!ready});
+      s+=`<text x="80" y="${y+4}" fill="${ready?'var(--ink)':'var(--muted)'}" font-size="11" font-family="monospace" text-anchor="middle">${src.label}</text>`;
+      s+=R.edge(140,y, exX-50,exY-10+i*10,{color:ready?src.c:'var(--line)',lw:1.4,dash:ready?null:'3 3'});
+      // 준비된 콜백이 executor로 흐르는 패킷
+      if(ready){ const u=clamp((p-src.ready)/0.2,0,1); if(u<1){ const pt=R.lerp2([140,y],[exX-50,exY-10+i*10],u); s+=R.packet(pt[0],pt[1],{color:src.c}); } }
+    });
+    // 처리 결과
+    const done=SRC.filter(sc=>p>sc.ready+0.2).length;
+    s+=`<text x="${W-60}" y="${exY+4}" fill="${R.C.ok}" font-size="14" font-family="monospace" text-anchor="middle" font-weight="700">${done}/3</text>`;
+    s+=R.edge(exX+50,exY, W-90,exY,{color:'var(--line)',lw:1.4});
+    s+=`<text x="${W-60}" y="${exY+22}" fill="var(--muted)" font-size="9" font-family="monospace" text-anchor="middle">실행됨</text>`;
+    document.getElementById('s2').innerHTML=R.svg(W,H,s,'여러 콜백 한 executor');
+    document.getElementById('lab2').innerHTML = p<0.05?'▶로 실행하세요. 세 종류 콜백이 각자 준비돼요.': `구독·타이머·서비스 콜백이 모두 <b style="color:var(--hot)">executor</b> 한 곳으로 모여 실행돼요 (${done}/3).`;
+  }
+  document.getElementById('go2').onclick=()=>{ if(cancel)cancel(); cancel=VZ.LA.tween(p=>render(p),2800,()=>render(1)); };
+  document.getElementById('rst2').onclick=()=>{ if(cancel)cancel(); render(0); };
+  render(0);
+})();
+
+// ===== STEP 3: takeaways =====
+(function(){ const W=460,H=140;
+  let s=`<text x="${W/2}" y="26" fill="var(--good)" font-size="13" font-family="monospace" text-anchor="middle" font-weight="700">메시지 도착 ≠ 콜백 실행</text>`;
+  const flow=['메시지 도착','큐에 대기','spin(executor)','콜백 실행'];
+  flow.forEach((t,i)=>{ const x=20+i*((W-40)/4); const cw=(W-40)/4-10; s+=`<rect x="${x}" y="56" width="${cw}" height="40" rx="9" fill="var(--panel)" stroke="${i===2?'var(--hot)':'var(--line)'}" stroke-width="${i===2?2:1.1}"/><text x="${x+cw/2}" y="80" fill="${i===2?'var(--hot)':'var(--ink)'}" font-size="10.5" font-family="monospace" text-anchor="middle" font-weight="${i===2?700:400}">${t}</text>`;
+    if(i<3) s+=`<text x="${x+cw+5}" y="80" fill="var(--faint)" font-size="13" text-anchor="middle">›</text>`; });
+  s+=`<text x="${W/2}" y="120" fill="var(--muted)" font-size="10.5" font-family="monospace" text-anchor="middle">spin이 안 돌면 콜백은 영영 안 불려요</text>`;
+  document.getElementById('s3').innerHTML=R.svg(W,H,s,'정리');
+  document.getElementById('lab3').innerHTML=`executor가 콜백을 <b>한 번에 하나씩</b>? 콜백이 <b>오래 걸리면</b>? → 단일 스레드의 세계로.`;
+})();
+</script>
+</body>
+</html>

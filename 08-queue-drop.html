@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>08 · 큐와 드롭 — ROS2, 눈으로 보기</title>
+<link rel="stylesheet" href="shared/theme.css">
+<link rel="icon" type="image/svg+xml" href="shared/favicon.svg">
+<style>
+  .scene{cursor:default;}
+  .big{font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--ink); margin:8px 2px 0;}
+  .ctl{display:flex; align-items:center; gap:10px; margin:10px 0; flex-wrap:wrap;}
+  .ctl label{font-size:13px; color:var(--muted);}
+  svg{display:block; width:100%; background:var(--panel-2); border:1px solid var(--line); border-radius:12px;}
+  .toggles{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+  .toggles button{font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:8px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);cursor:pointer}
+  .toggles button.on{color:#0b0e14;font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topnav" id="topnav"></div>
+
+  <header>
+    <div class="tag" style="color:var(--hot)">PART C · QoS — CH 08</div>
+    <h1>큐와 드롭 — 밀리면 버린다</h1>
+    <p class="intro">연결이 잘 됐다고 끝이 아니에요. 메시지가 <b>처리되는 속도보다 빨리 들어오면</b>, 대기줄(<b>큐</b>)에 쌓여요. 그런데 큐는 무한하지 않아요 — QoS의 <b>depth(깊이)</b>만큼만 담고, 넘치면 <b>가장 오래된 걸 버려요</b>(KeepLast 정책). 이게 "분명히 발행했는데 구독 콜백이 가끔 건너뛰는" 현상의 정체예요. 버그가 아니라 <b>설계된 동작</b>이죠. 이 챕터에서 큐가 차고 넘치는 걸 직접 보고, depth를 어떻게 잡을지 감을 잡아요.</p>
+  </header>
+
+  <nav class="stepper" id="stepper">
+    <button data-s="0" class="active">00 · 큐가 찬다</button>
+    <button data-s="1">01 · 속도 차이</button>
+    <button data-s="2">02 · depth 정하기</button>
+    <button data-s="3">03 · 정리</button>
+  </nav>
+
+  <!-- STEP 0 -->
+  <section class="panel show" data-panel="0">
+    <span class="kicker" style="color:var(--hot)">Step 00 — The Queue Fills</span>
+    <h2>빨리 들어오고 늦게 처리되면 — 넘친다</h2>
+    <p class="lead">발행자가 메시지를 <b>빠르게</b> 보내는데 구독자가 <b>천천히</b> 처리해요. 둘 사이 <b>큐</b>(깊이 5)에 메시지가 쌓여요. ▶를 누르면 들어오는 속도가 처리 속도를 앞질러 큐가 차고, 꽉 차면 <b>새로 온 게 아니라 가장 오래된 게 버려져요</b>(KeepLast). 버려진 메시지는 구독 콜백이 <b>영영 못 봐요</b>.</p>
+    <div class="ctl"><button class="btn play" id="go0">▶ 흐름 시작</button> <button class="btn" id="rst0">↺ 리셋</button></div>
+    <div class="scene" id="s0"></div>
+    <p class="big" id="lab0"></p>
+    <p class="note" style="margin-top:6px">→ 큐가 꽉 차서 버려지는 건 정상 동작이에요. "왜 콜백이 가끔 건너뛰지?"의 답이 바로 이거예요.</p>
+  </section>
+
+  <!-- STEP 1 -->
+  <section class="panel" data-panel="1">
+    <span class="kicker" style="color:var(--q)">Step 01 — Rate Mismatch</span>
+    <h2>발행 속도 vs 처리 속도 — 직접 조절</h2>
+    <p class="lead">발행 속도와 처리 속도를 슬라이더로 바꿔보세요. <b>발행 ≤ 처리</b>면 큐가 거의 비어 있고 드롭이 없어요. <b>발행 > 처리</b>면 큐가 금방 꽉 차서 매 순간 <b>오래된 게 버려져요</b>. 처리 속도를 못 올리면(무거운 콜백) depth를 늘려도 <b>잠깐 버틸 뿐</b> 결국 넘쳐요 — 근본 해결은 처리를 빠르게 하거나 발행을 줄이는 거예요.</p>
+    <div class="ctl"><label>발행 <span id="inL" style="color:var(--hot)">8</span>/s</label><input type="range" id="inR" min="1" max="12" step="1" value="8" style="flex:1">
+      <label>처리 <span id="outL" style="color:var(--good)">4</span>/s</label><input type="range" id="outR" min="1" max="12" step="1" value="4" style="flex:1"></div>
+    <div class="scene" id="s1"></div>
+    <p class="big" id="lab1"></p>
+    <p class="note" style="margin-top:6px">→ 처리 속도는 다음 PART(executor)에서 다뤄요 — 콜백이 <b>언제·얼마나 빨리</b> 도는지가 곧 처리 속도예요.</p>
+  </section>
+
+  <!-- STEP 2 -->
+  <section class="panel" data-panel="2">
+    <span class="kicker" style="color:var(--v)">Step 02 — Choosing depth</span>
+    <h2>depth를 어떻게 정하나 — 최신만 vs 다 모으기</h2>
+    <p class="lead">depth와 정책 선택을 눌러보세요. <b>최신만 중요</b>(센서·상태)하면 <b>작은 depth</b>(예 1~5)로 충분 — 어차피 오래된 건 버려도 돼요. <b>하나도 놓치면 안 됨</b>(이벤트·명령)이면 <b>Reliable + 넉넉한 depth</b>로. 단 주의: Reliable인데 처리가 느리고 큐가 작으면, 발행 쪽이 <b>오히려 막힐(backpressure)</b> 수 있어요.</p>
+    <div class="toggles" id="cases"></div>
+    <div class="scene" id="s2"></div>
+    <p class="big" id="lab2"></p>
+    <p class="note" style="margin-top:6px">→ "depth를 무조건 크게"는 답이 아니에요 — 메모리·지연이 늘고, 오래된 데이터가 콜백에 밀려들어요.</p>
+  </section>
+
+  <!-- STEP 3 -->
+  <section class="panel" data-panel="3">
+    <span class="kicker" style="color:var(--good)">Step 03 — Takeaways</span>
+    <h2>정리 — PART C를 닫으며</h2>
+    <p class="lead">큐는 <b>depth만큼만</b> 담고 넘치면 <b>오래된 걸 버려요</b>(KeepLast). 발행이 처리보다 빠르면 드롭은 필연이고, 이건 버그가 아니라 설계예요. QoS 3종 — <b>신뢰성</b>(다 받기/빠르게)·<b>내구성</b>(늦게 와도 받기)·<b>이력/depth</b>(얼마나 쌓을지)를 데이터 성격에 맞춰 고르면 돼요. 그런데 "처리 속도"는 대체 무엇이 정할까요? <b>콜백이 언제 도는가</b> — 다음 PART, executor의 세계예요.</p>
+    <div class="scene" id="s3"></div>
+    <p class="big" id="lab3"></p>
+    <p class="note" style="margin-top:14px">→ 다음 → <a href="09-callbacks.html" style="color:var(--q);font-weight:700">CH 09 · 콜백과 spin</a></p>
+  </section>
+
+  <p class="foot">// 코드 없는 직관 입문 · <a href="index.html">목차</a></p>
+</div>
+
+<script src="shared/lib.js"></script>
+<script src="shared/lib-ros.js"></script>
+<script>
+VZ.mountTopnav('#topnav', '08 · 큐와 드롭');
+VZ.setupStepper();
+const R=VZ.ROS, fmt=VZ.fmt, clamp=VZ.clamp;
+
+// ===== STEP 0: queue fills and overflows =====
+(function(){ const W=460,H=210, depth=5; let cancel=null;
+  // 이산 시뮬: 발행 8/s, 처리 4/s. dt마다 in/out. 큐 카운트 추적.
+  function render(p){ const T=p*6; // 6초
+    let q=0, dropped=0, processed=0;
+    // 0.1초 단위 시뮬 (발행 8/s, 처리 3/s → 큐가 꽉 차고 드롭 발생)
+    const steps=Math.floor(T*10); const inPer=0.8, outPer=0.3; let inAcc=0,outAcc=0;
+    for(let k=0;k<steps;k++){ inAcc+=inPer; while(inAcc>=1){ inAcc-=1; if(q<depth)q++; else dropped++; } outAcc+=outPer; while(outAcc>=1){ outAcc-=1; if(q>0){q--; processed++;} } }
+    let s='';
+    s+=R.box(20,80,72,48,'발행',{color:R.C.node,sub:'8/s 빠름'});
+    s+=R.box(W-92,80,72,48,'구독',{color:R.C.node,sub:'3/s 느림'});
+    // 큐 (가운데)
+    s+=`<text x="${W/2}" y="62" fill="var(--muted)" font-size="11" font-family="monospace" text-anchor="middle">큐 (depth ${depth})</text>`;
+    s+=R.queue(W/2-((26+3)*depth)/2, 78, depth, q, {color:q>=depth?R.C.drop:R.C.msg});
+    // 화살표
+    s+=R.edge(92,104, W/2-((26+3)*depth)/2-6,104,{color:'var(--line)',lw:1.6});
+    s+=R.edge(W/2+((26+3)*depth)/2+6,104, W-92,104,{color:'var(--line)',lw:1.6});
+    // 지표
+    s+=`<text x="${W/2}" y="160" fill="var(--ink)" font-size="12" font-family="monospace" text-anchor="middle">큐 ${q}/${depth} · 처리 ${processed} · <tspan fill="${R.C.drop}">버림 ${dropped}</tspan></text>`;
+    s+=R.progress(80,178,W-160,q/depth,{color:q>=depth?R.C.drop:R.C.msg});
+    document.getElementById('s0').innerHTML=R.svg(W,H,s,'큐 채움과 넘침');
+    document.getElementById('lab0').innerHTML = p<0.02?'▶로 흐름을 시작하세요.': q>=depth?`큐가 <b style="color:var(--drop)">꽉 참</b> — 새 메시지가 와도 오래된 게 버려져요(누적 ${dropped}개 드롭).`:`큐 ${q}/${depth} 채워지는 중… 들어오는 속도가 처리보다 빨라요.`;
+  }
+  document.getElementById('go0').onclick=()=>{ if(cancel)cancel(); cancel=VZ.LA.tween(p=>render(p),5000,()=>render(1)); };
+  document.getElementById('rst0').onclick=()=>{ if(cancel)cancel(); render(0); };
+  render(0);
+})();
+
+// ===== STEP 1: rate sliders, steady-state =====
+(function(){ const W=460,H=200, depth=8; let inR=8,outR=4, cancel=null;
+  const inEl=document.getElementById('inR'),outEl=document.getElementById('outR'),inL=document.getElementById('inL'),outL=document.getElementById('outL');
+  inEl.oninput=()=>{ inR=+inEl.value; inL.textContent=inR; run(); };
+  outEl.oninput=()=>{ outR=+outEl.value; outL.textContent=outR; run(); };
+  // 연속 애니: 큐 점유를 시간에 따라 시뮬
+  function render(p){ const T=p*8; const steps=Math.floor(T*10); let q=0,dropped=0,processed=0; let inAcc=0,outAcc=0;
+    for(let k=0;k<steps;k++){ inAcc+=inR/10; while(inAcc>=1){inAcc-=1; if(q<depth)q++; else dropped++;} outAcc+=outR/10; while(outAcc>=1){outAcc-=1; if(q>0){q--;processed++;}} }
+    let s='';
+    s+=`<text x="${W/2}" y="34" fill="var(--muted)" font-size="11" font-family="monospace" text-anchor="middle">큐 (depth ${depth})</text>`;
+    s+=R.queue(W/2-((26+3)*depth)/2, 48, depth, q, {color:q>=depth?R.C.drop:R.C.msg});
+    s+=R.progress(80,96,W-160,q/depth,{color:q>=depth?R.C.drop:R.C.msg});
+    const overflow=inR>outR;
+    s+=`<text x="${W/2}" y="134" fill="${overflow?R.C.drop:R.C.ok}" font-size="13" font-family="monospace" text-anchor="middle" font-weight="700">${overflow?'발행 > 처리 → 큐 포화·드롭':'발행 ≤ 처리 → 큐 안정·드롭 없음'}</text>`;
+    s+=`<text x="${W/2}" y="158" fill="var(--ink)" font-size="11.5" font-family="monospace" text-anchor="middle">큐 ${q}/${depth} · 처리 ${processed} · <tspan fill="${R.C.drop}">버림 ${dropped}</tspan></text>`;
+    document.getElementById('s1').innerHTML=R.svg(W,H,s,'속도 차이');
+    document.getElementById('lab1').innerHTML = inR<=outR?'처리가 발행을 <b style="color:var(--good)">따라잡아요</b> — 큐가 비어 드롭이 없어요.':`발행이 처리를 <b style="color:var(--drop)">앞질러요</b> — 큐가 꽉 찬 뒤부터 초당 약 ${inR-outR}개씩 버려져요.`;
+  }
+  function run(){ if(cancel)cancel(); cancel=VZ.LA.tween(p=>render(p),3000,()=>render(1)); } // 채워지는 과정 → 정상상태 유지
+  run();
+})();
+
+// ===== STEP 2: choosing depth =====
+(function(){ let sel=0;
+  const CASES=[
+    {k:'센서 스트림 (최신만)',depth:'1~5 (작게)',pol:'KeepLast',rel:'Best Effort',why:'어차피 오래된 건 버려도 돼요. 작은 depth로 메모리·지연을 아끼고 최신만 빠르게.'},
+    {k:'명령·이벤트 (다 받기)',depth:'넉넉히',pol:'KeepLast',rel:'Reliable',why:'하나도 놓치면 안 되니 Reliable + 충분한 depth. 단 처리가 느리면 발행이 막힐(backpressure) 수 있어 주의.'},
+    {k:'로그 수집 (전부 보존)',depth:'— (무시)',pol:'KeepAll',rel:'Reliable',why:'KeepAll은 depth 개념이 없어요 — 자원 한계까지 모두 보존. 위 case의 backpressure 위험이 가장 큰 설정이라, 메모리·지연 압박을 각오해야 해요.'},
+  ];
+  const cs=document.getElementById('cases');
+  cs.innerHTML=CASES.map((c,i)=>`<button data-i="${i}">${c.k}</button>`).join('');
+  function render(){ const W=460,H=170; const c=CASES[sel]; let s='';
+    s+=`<rect x="14" y="14" width="${W-28}" height="${H-28}" rx="12" fill="var(--panel-2)" stroke="${R.C.topic}"/>`;
+    s+=`<text x="32" y="42" fill="${R.C.topic}" font-size="14" font-family="monospace" font-weight="700">${c.k}</text>`;
+    s+=`<text x="32" y="66" fill="var(--ink)" font-size="11.5" font-family="monospace">depth: <tspan fill="var(--hot)">${c.depth}</tspan>  ·  정책: ${c.pol}  ·  신뢰성: ${c.rel}</text>`;
+    s+=`<foreignObject x="32" y="78" width="${W-64}" height="76"><div xmlns="http://www.w3.org/1999/xhtml" style="font-family:monospace;font-size:12px;line-height:1.55;color:#cdd6f4">${c.why}</div></foreignObject>`;
+    document.getElementById('s2').innerHTML=R.svg(W,H,s,c.k);
+    document.querySelectorAll('#cases button').forEach((b,i)=>{ const on=i===sel; b.classList.toggle('on',on); b.style.background=on?R.C.topic:'var(--panel-2)'; b.style.color=on?'#0b0e14':'var(--muted)'; });
+    document.getElementById('lab2').innerHTML='depth는 "얼마나 쌓아둘까"예요 — <b>최신만이면 작게, 다 받기면 크게+Reliable</b>.';
+  }
+  cs.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return; sel=+b.dataset.i; render(); });
+  render();
+})();
+
+// ===== STEP 3: takeaways (QoS trio) =====
+(function(){ const W=460,H=160;
+  let s=`<text x="${W/2}" y="24" fill="var(--good)" font-size="13" font-family="monospace" text-anchor="middle" font-weight="700">QoS 3종 — 데이터 성격에 맞춰</text>`;
+  const rows=[['신뢰성','다 받기(Rel) vs 빠르게(BE)','CH 06'],['내구성','늦게 붙어도 마지막 값?','CH 07 참고'],['이력·depth','얼마나 쌓고 언제 버리나','CH 08']];
+  rows.forEach((r,i)=>{ const y=38+i*38; s+=`<rect x="20" y="${y}" width="${W-40}" height="32" rx="8" fill="var(--panel)" stroke="var(--hot)" stroke-width="1.1"/><text x="34" y="${y+20}" fill="var(--hot)" font-size="12.5" font-family="monospace" font-weight="700">${r[0]}</text><text x="130" y="${y+20}" fill="var(--ink)" font-size="11" font-family="monospace">${r[1]}</text><text x="${W-34}" y="${y+20}" fill="var(--muted)" font-size="10" font-family="monospace" text-anchor="end">${r[2]}</text>`; });
+  document.getElementById('s3').innerHTML=R.svg(W,H,s,'QoS 3종');
+  document.getElementById('lab3').innerHTML=`"처리 속도"를 정하는 건 <b style="color:var(--hot)">executor</b> — 콜백이 언제 도는가. 다음 PART의 주제예요.`;
+})();
+</script>
+</body>
+</html>

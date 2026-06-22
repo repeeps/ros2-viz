@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>02 · 토픽 — ROS2, 눈으로 보기</title>
+<link rel="stylesheet" href="shared/theme.css">
+<link rel="icon" type="image/svg+xml" href="shared/favicon.svg">
+<style>
+  .scene{cursor:default;}
+  .big{font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--ink); margin:8px 2px 0;}
+  .ctl{display:flex; align-items:center; gap:10px; margin:10px 0; flex-wrap:wrap;}
+  .ctl label{font-size:13px; color:var(--muted);}
+  svg{display:block; width:100%; background:var(--panel-2); border:1px solid var(--line); border-radius:12px;}
+  .term{font-family:'JetBrains Mono',monospace; font-size:12.5px; background:#0a0d13; border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-top:10px; line-height:1.7; color:#cdd6f4; white-space:pre-wrap;}
+  .term .pmt{color:var(--good);} .term .cmd{color:var(--ink);} .term .out{color:var(--muted);}
+  .toggles{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+  .toggles button{font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:8px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);cursor:pointer}
+  .toggles button.on{color:#0b0e14;font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topnav" id="topnav"></div>
+
+  <header>
+    <div class="tag" style="color:var(--q)">PART A · 연결 — CH 02</div>
+    <h1>토픽과 발행·구독</h1>
+    <p class="intro">노드들을 잇는 가장 기본 방식은 <b>토픽(topic)</b>이에요. 핵심은 "누구에게 보낼까"가 아니라 <b>"어떤 주제(이름)로 보낼까"</b>예요. 카메라 노드는 <b>/image</b>라는 주제로 영상을 <b>발행(publish)</b>하고, 그 주제가 궁금한 노드는 <b>구독(subscribe)</b>해요. 발행자는 <b>누가 듣는지 몰라도</b>, 구독자는 <b>누가 보냈는지 몰라도</b> 됩니다 — 주제 이름과 메시지 모양만 맞으면 연결돼요. 이 느슨한 연결(decoupling)이 노드를 자유롭게 갈아 끼우게 해줘요.</p>
+  </header>
+
+  <nav class="stepper" id="stepper">
+    <button data-s="0" class="active">00 · 메시지가 흐른다</button>
+    <button data-s="1">01 · 다대다 연결</button>
+    <button data-s="2">02 · 발행자는 모른다</button>
+    <button data-s="3">03 · 정리</button>
+  </nav>
+
+  <!-- STEP 0 -->
+  <section class="panel show" data-panel="0">
+    <span class="kicker" style="color:var(--hot)">Step 00 — Messages Flow</span>
+    <h2>한 주제로 흘려보내면, 듣는 모두가 받는다</h2>
+    <p class="lead">▶를 누르면 <b>카메라</b>가 <b>/image</b> 토픽으로 메시지를 계속 흘려보내요. 그 토픽을 <b>구독</b>하는 노드 셋(<b>인식·기록·미리보기</b>)이 <b>동시에</b> 같은 메시지를 받아요. 노란 점이 메시지고, 가운데 알약이 토픽이에요. 발행자는 "이 셋에게 보내라"고 한 적이 없어요 — 그냥 <b>/image에 올렸을 뿐</b>이에요.</p>
+    <div class="ctl"><button class="btn play" id="go0">▶ 발행 시작</button> <button class="btn" id="rst0">↺ 리셋</button></div>
+    <div class="scene" id="s0"></div>
+    <p class="big" id="lab0"></p>
+    <p class="note" style="margin-top:6px">→ 하나가 올리면 <b>여럿이</b> 받아요(1→다). 구독자를 더 붙여도 발행자 코드는 <b>그대로</b>예요.</p>
+  </section>
+
+  <!-- STEP 1 -->
+  <section class="panel" data-panel="1">
+    <span class="kicker" style="color:var(--q)">Step 01 — Many-to-Many</span>
+    <h2>구독자·발행자를 붙였다 뗐다</h2>
+    <p class="lead">구독자를 <b>켜고 꺼</b>보세요 — 메시지는 <b>살아있는 구독자에게만</b> 흘러요. 발행자를 하나 더 켜면(<b>다대다</b>) 두 발행자의 메시지가 같은 토픽에 섞여 흐르고, 모든 구독자가 둘 다 받아요. 누가 추가/제거돼도 나머지는 <b>건드릴 필요 없이</b> 계속 돌아가는 게 토픽의 힘이에요.</p>
+    <div class="toggles" id="tg"></div>
+    <div class="scene" id="s1"></div>
+    <p class="big" id="lab1"></p>
+    <p class="note" style="margin-top:6px">→ 발행 0개면 토픽은 있어도 조용하고, 구독 0개면 메시지는 흘러도 <b>아무도 안 받아요</b>(버려지는 게 아니라 그냥 받는 이가 없음).</p>
+  </section>
+
+  <!-- STEP 2 -->
+  <section class="panel" data-panel="2">
+    <span class="kicker" style="color:var(--v)">Step 02 — The Publisher Doesn't Know</span>
+    <h2>발행자는 구독자를 모른다 — 이름과 모양만 맞으면</h2>
+    <p class="lead">토픽이 연결되려면 두 가지가 맞아야 해요: <b>같은 이름</b>(예 /image)과 <b>같은 메시지 타입</b>(예 sensor_msgs/Image). 이름이나 타입이 어긋나면 <b>조용히 연결이 안 돼요</b> — 에러도 잘 안 나서 초보자가 가장 많이 헤매는 지점이에요. 아래에서 발행/구독의 <b>이름·타입을 바꿔</b> 맞을 때만 메시지가 흐르는 걸 확인하세요.</p>
+    <div class="toggles" id="tg2"></div>
+    <div class="scene" id="s2"></div>
+    <div class="term" id="term2"></div>
+    <p class="note" style="margin-top:6px">→ "왜 데이터가 안 들어오지?"의 1순위 원인 — 토픽 이름 오타나 타입 불일치예요. (또 하나는 <b>QoS 불일치</b> → <a href="07-qos-compat.html" style="color:var(--q)">CH 07</a>.)</p>
+  </section>
+
+  <!-- STEP 3 -->
+  <section class="panel" data-panel="3">
+    <span class="kicker" style="color:var(--good)">Step 03 — Takeaways</span>
+    <h2>정리 — 토픽을 한 문장으로</h2>
+    <p class="lead">토픽은 <b>주제 이름으로 메시지를 흘려보내는 다대다·단방향 통로</b>예요. 발행자와 구독자는 서로를 모른 채 <b>이름+타입</b>으로만 연결돼요. 계속 흐르는 데이터(센서·상태)에 딱 맞지만, "한 번 묻고 답 받기"엔 안 맞아요 — 그건 서비스예요.</p>
+    <div class="scene" id="s3"></div>
+    <p class="big" id="lab3"></p>
+    <p class="note" style="margin-top:14px">→ 다음 → <a href="03-services.html" style="color:var(--q);font-weight:700">CH 03 · 서비스, 묻고 답 받기</a></p>
+  </section>
+
+  <p class="foot">// 코드 없는 직관 입문 · <a href="index.html">목차</a></p>
+</div>
+
+<script src="shared/lib.js"></script>
+<script src="shared/lib-ros.js"></script>
+<script>
+VZ.mountTopnav('#topnav', '02 · 토픽');
+VZ.setupStepper();
+const R=VZ.ROS, fmt=VZ.fmt, clamp=VZ.clamp;
+
+// ===== STEP 0: 1 pub → 3 subs fanout =====
+(function(){ const W=460,H=220; let cancel=null;
+  const pub={x:18,y:90,w:96,h:48,label:'카메라',sub:'publisher'};
+  const topic={cx:200,cy:114};
+  const subs=[{y:30,label:'인식'},{y:96,label:'기록'},{y:162,label:'미리보기'}];
+  const subX=348, subW=96, subH=44;
+  function render(p){ let s='';
+    // pub→topic 선
+    s+=R.edge(pub.x+pub.w, pub.y+pub.h/2, topic.cx-44, topic.cy, {color:'var(--line)',lw:1.6});
+    // topic→subs 선
+    subs.forEach(su=>{ s+=R.edge(topic.cx+44, topic.cy, subX, su.y+subH/2, {color:'var(--line)',lw:1.4}); });
+    s+=R.pill(topic.cx,topic.cy,'/image',{color:R.C.topic,active:true});
+    s+=R.box(pub.x,pub.y,pub.w,pub.h,pub.label,{color:R.C.node,sub:'pub'});
+    subs.forEach(su=>{ s+=R.box(subX,su.y,subW,subH,su.label,{color:R.C.node,sub:'sub'}); });
+    // 패킷: pub→topic, 그 다음 topic→각 sub로 분기
+    if(p>0.01 && p<0.99){ // 두 메시지 흐름
+      [0,0.5].forEach(ph=>{ let u=(p*2-ph); if(u<0)u+=2; u=u%1; // 0..1
+        if(u<0.5){ const uu=u/0.5; const A=[pub.x+pub.w,pub.y+pub.h/2],B=[topic.cx-44,topic.cy]; const pt=R.lerp2(A,B,uu); s+=R.packet(pt[0],pt[1],{}); }
+        else { const uu=(u-0.5)/0.5; subs.forEach(su=>{ const A=[topic.cx+44,topic.cy],B=[subX,su.y+subH/2]; const pt=R.lerp2(A,B,uu); s+=R.packet(pt[0],pt[1],{}); }); }
+      });
+    }
+    document.getElementById('s0').innerHTML=R.svg(W,H,s,'1 발행 3 구독 팬아웃');
+    document.getElementById('lab0').innerHTML = p<0.02?'멈춤 — ▶로 발행을 시작하세요.':'<b style="color:var(--q)">카메라</b> 하나가 올린 메시지를 <b style="color:var(--good)">세 구독자</b>가 동시에 받아요 — 발행자는 이들을 몰라요.';
+  }
+  function loop(){ cancel=VZ.LA.tween(p=>render(p),5000,()=>render(0.999)); }
+  document.getElementById('go0').onclick=()=>{ if(cancel)cancel(); loop(); };
+  document.getElementById('rst0').onclick=()=>{ if(cancel)cancel(); render(0); };
+  render(0);
+})();
+
+// ===== STEP 1: many-to-many toggles =====
+(function(){ const W=460,H=230; let cancel=null;
+  const pubs=[{label:'카메라A',on:true},{label:'카메라B',on:false}];
+  const subs=[{label:'인식',on:true},{label:'기록',on:true},{label:'미리보기',on:false}];
+  const topic={cx:205,cy:115};
+  const tg=document.getElementById('tg');
+  tg.innerHTML='<span style="color:var(--muted);font-size:11px;align-self:center">발행:</span>'+pubs.map((x,i)=>`<button data-t="p" data-i="${i}">${x.label}</button>`).join('')+'<span style="color:var(--muted);font-size:11px;align-self:center;margin-left:8px">구독:</span>'+subs.map((x,i)=>`<button data-t="s" data-i="${i}">${x.label}</button>`).join('');
+  function pY(i){ return 56+i*70; } function sY(i){ return 30+i*66; }
+  function render(p){ let s=''; const subX=348,subW=92,subH=42,pubX=18,pubW=92,pubH=42;
+    pubs.forEach((pb,i)=>{ if(!pb.on)return; s+=R.edge(pubX+pubW, pY(i)+pubH/2, topic.cx-44, topic.cy,{color:'var(--line)',lw:1.4}); });
+    subs.forEach((su,i)=>{ if(!su.on)return; s+=R.edge(topic.cx+44, topic.cy, subX, sY(i)+subH/2,{color:'var(--line)',lw:1.4}); });
+    const anyPub=pubs.some(x=>x.on);
+    s+=R.pill(topic.cx,topic.cy,'/image',{color:R.C.topic,active:anyPub});
+    pubs.forEach((pb,i)=>s+=R.box(pubX,pY(i),pubW,pubH,pb.label,{color:pb.on?R.C.node:'var(--line)',dim:!pb.on,sub:'pub'}));
+    subs.forEach((su,i)=>s+=R.box(subX,sY(i),subW,subH,su.label,{color:su.on?R.C.node:'var(--line)',dim:!su.on,sub:'sub'}));
+    // packets
+    if(anyPub && p>0.01 && p<0.99){ const u=(p*1.4)%1;
+      pubs.forEach((pb,i)=>{ if(!pb.on)return;
+        if(u<0.5){ const uu=u/0.5; const pt=R.lerp2([pubX+pubW,pY(i)+pubH/2],[topic.cx-44,topic.cy],uu); s+=R.packet(pt[0],pt[1],{}); }
+      });
+      if(u>=0.5){ const uu=(u-0.5)/0.5; subs.forEach((su,i)=>{ if(!su.on)return; const pt=R.lerp2([topic.cx+44,topic.cy],[subX,sY(i)+subH/2],uu); s+=R.packet(pt[0],pt[1],{}); }); }
+    }
+    document.getElementById('s1').innerHTML=R.svg(W,H,s,'다대다 토픽');
+    document.querySelectorAll('#tg button').forEach(b=>{ const arr=b.dataset.t==='p'?pubs:subs; const x=arr[+b.dataset.i]; b.classList.toggle('on',x.on); b.style.background=x.on?(b.dataset.t==='p'?R.C.node:R.C.ok):'var(--panel-2)'; b.style.color=x.on?'#0b0e14':'var(--muted)'; });
+    const np=pubs.filter(x=>x.on).length, ns=subs.filter(x=>x.on).length;
+    document.getElementById('lab1').innerHTML = `발행 <b>${np}</b> · 구독 <b>${ns}</b> — `+ (np===0?'발행이 없어 토픽이 조용해요.': ns===0?'메시지는 흐르지만 <b>받는 이가 없어요</b>.':'모든 구독자가 모든 발행자의 메시지를 받아요(다대다).');
+  }
+  tg.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return; const arr=b.dataset.t==='p'?pubs:subs; arr[+b.dataset.i].on=!arr[+b.dataset.i].on; });
+  function loop(){ cancel=VZ.LA.tween(p=>render(p),4200,()=>loop()); }
+  loop();
+})();
+
+// ===== STEP 2: name/type match =====
+(function(){ const W=460,H=170; let cancel=null;
+  const names=['/image','/img','/camera']; const types=['Image','PointCloud2'];
+  let pubName=0, pubType=0, subName=0, subType=0;
+  const tg=document.getElementById('tg2');
+  tg.innerHTML=`<span style="color:var(--muted);font-size:11px;align-self:center">발행</span>`+
+    `<button data-k="pn">이름:${names[pubName]}</button><button data-k="pt">타입:${types[pubType]}</button>`+
+    `<span style="color:var(--muted);font-size:11px;align-self:center;margin-left:10px">구독</span>`+
+    `<button data-k="sn">이름:${names[subName]}</button><button data-k="st">타입:${types[subType]}</button>`;
+  function render(p){ const match = (names[pubName]===names[subName]) && (types[pubType]===types[subType]); let s='';
+    const pubB={x:18,y:60,w:120,h:46}, subB={x:322,y:60,w:120,h:46}, tc={cx:230,cy:83};
+    s+=R.edge(pubB.x+pubB.w,pubB.y+pubB.h/2,tc.cx-46,tc.cy,{color:match?'var(--line)':R.C.drop,lw:1.4,dash:match?null:'4 3'});
+    s+=R.edge(tc.cx+46,tc.cy,subB.x,subB.y+subB.h/2,{color:match?'var(--line)':R.C.drop,lw:1.4,dash:match?null:'4 3'});
+    s+=R.pill(tc.cx,tc.cy,names[pubName],{color:match?R.C.topic:R.C.drop,active:match});
+    s+=R.box(pubB.x,pubB.y,pubB.w,pubB.h,'발행자',{color:R.C.node,sub:names[pubName]+' · '+types[pubType]});
+    s+=R.box(subB.x,subB.y,subB.w,subB.h,'구독자',{color:R.C.node,sub:names[subName]+' · '+types[subType]});
+    if(match && p>0.01 && p<0.99){ const u=p; const path=[[pubB.x+pubB.w,pubB.y+pubB.h/2],[subB.x,subB.y+subB.h/2]]; const pt=R.lerp2(path[0],path[1],u); s+=R.packet(pt[0],pt[1],{}); }
+    if(!match){ s+=`<text x="${W/2}" y="145" fill="${R.C.drop}" font-size="12" font-family="monospace" text-anchor="middle" font-weight="700">✕ 연결 안 됨 — ${names[pubName]!==names[subName]?'이름 불일치':'타입 불일치'}</text>`; }
+    else s+=`<text x="${W/2}" y="145" fill="${R.C.ok}" font-size="12" font-family="monospace" text-anchor="middle" font-weight="700">✓ 연결됨 — 메시지가 흐른다</text>`;
+    document.getElementById('s2').innerHTML=R.svg(W,H,s,'이름·타입 매칭');
+    document.getElementById('term2').innerHTML=`<span class="pmt">$</span> <span class="cmd">ros2 topic list -t</span>\n<span class="out">  ${names[pubName]} [sensor_msgs/${types[pubType]}]   ← 발행</span>\n<span class="out">  ${names[subName]} [sensor_msgs/${types[subType]}]   ← 구독</span>\n<span style="color:${match?'var(--good)':'var(--hot)'}">  ${match?'두 줄이 일치 → 연결':'두 줄이 다름 → 연결 안 됨'}</span>`;
+  }
+  tg.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return; const k=b.dataset.k;
+    if(k==='pn'){pubName=(pubName+1)%names.length;} if(k==='sn'){subName=(subName+1)%names.length;}
+    if(k==='pt'){pubType=(pubType+1)%types.length;} if(k==='st'){subType=(subType+1)%types.length;}
+    document.querySelector('[data-k=pn]').textContent='이름:'+names[pubName];
+    document.querySelector('[data-k=sn]').textContent='이름:'+names[subName];
+    document.querySelector('[data-k=pt]').textContent='타입:'+types[pubType];
+    document.querySelector('[data-k=st]').textContent='타입:'+types[subType];
+  });
+  function loop(){ cancel=VZ.LA.tween(p=>render(p),2600,()=>loop()); }
+  loop();
+})();
+
+// ===== STEP 3: takeaways =====
+(function(){ const W=460,H=140;
+  let s=`<text x="${W/2}" y="26" fill="var(--good)" font-size="13" font-family="monospace" text-anchor="middle" font-weight="700">토픽 = 이름으로 잇는 다대다 단방향 흐름</text>`;
+  const pts=[['1→다 / 다→다','한 메시지를 여럿이'],['단방향','계속 흐르는 데이터'],['느슨한 연결','서로를 모름'],['이름+타입','둘 다 맞아야']];
+  pts.forEach((p,i)=>{ const x=24+(i%2)*(W/2-8), y=44+Math.floor(i/2)*42; s+=`<rect x="${x}" y="${y}" width="${W/2-40}" height="34" rx="8" fill="var(--panel)" stroke="var(--good)" stroke-width="1.1"/><text x="${x+12}" y="${y+15}" fill="var(--ink)" font-size="12" font-family="monospace" font-weight="700">${p[0]}</text><text x="${x+12}" y="${y+28}" fill="var(--muted)" font-size="9.5" font-family="monospace">${p[1]}</text>`; });
+  document.getElementById('s3').innerHTML=R.svg(W,H,s,'정리');
+  document.getElementById('lab3').innerHTML=`토픽은 "흐름"엔 완벽하지만 "한 번 묻고 답받기"엔 안 맞아요 → <b style="color:var(--good)">서비스</b>로.`;
+})();
+</script>
+</body>
+</html>

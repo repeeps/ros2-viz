@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>16 · 너머 — ROS2, 눈으로 보기</title>
+<link rel="stylesheet" href="shared/theme.css">
+<link rel="icon" type="image/svg+xml" href="shared/favicon.svg">
+<style>
+  .scene{cursor:default;}
+  .big{font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--ink); margin:8px 2px 0;}
+  svg{display:block; width:100%; background:var(--panel-2); border:1px solid var(--line); border-radius:12px;}
+  .toggles{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+  .toggles button{font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:8px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);cursor:pointer}
+  .toggles button.on{color:#0b0e14;font-weight:700}
+  .links{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
+  .links a{text-decoration:none;flex:1;min-width:200px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;transition:.2s}
+  .links a:hover{transform:translateY(-3px);border-color:var(--q)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topnav" id="topnav"></div>
+
+  <header>
+    <div class="tag" style="color:var(--pink)">PART F · 실전 — CH 16</div>
+    <h1>너머 — 여기서 어디로</h1>
+    <p class="intro">여기까지 ROS2의 <b>멘탈 모델</b>을 세웠어요 — 노드·토픽·서비스·액션으로 <b>연결</b>하고, QoS로 <b>어떻게 받을지</b> 고르고, executor로 <b>언제 도는지</b> 정하고, tf로 <b>공간</b>을 잇고, 디스커버리·launch로 <b>시스템</b>을 꾸렸죠. 이건 코딩 강좌가 아니라 "<b>왜 이렇게 도는가</b>"를 보는 눈이었어요. 마지막으로 이 트랙이 <b>다루지 않은 깊은 주제</b>들과, 진짜 실력을 위한 <b>다음 발걸음</b>을 정리해요.</p>
+  </header>
+
+  <nav class="stepper" id="stepper">
+    <button data-s="0" class="active">00 · 지나온 길</button>
+    <button data-s="1">01 · 너머의 주제들</button>
+    <button data-s="2">02 · 다음 발걸음</button>
+    <button data-s="3">03 · 마무리</button>
+  </nav>
+
+  <!-- STEP 0 -->
+  <section class="panel show" data-panel="0">
+    <span class="kicker" style="color:var(--hot)">Step 00 — The Road Traveled</span>
+    <h2>지나온 길 — 16챕터를 한눈에</h2>
+    <p class="lead">출발점("마스터 없는 노드들")에서 여기(빈피킹 시스템)까지 온 길이에요. 각 PART가 ROS2의 한 축을 맡았죠 — <b>연결 → QoS → executor → 공간 → 시스템 → 실전</b>. 이 다섯 축이 머릿속에 지도로 남았다면, 이 트랙은 제 몫을 한 거예요.</p>
+    <div class="scene" id="s0"></div>
+    <p class="big" id="lab0"></p>
+    <p class="note" style="margin-top:6px">→ 이 지도가 실제 ROS2 시스템을 만났을 때 "어디를 보면 되는지" 길잡이가 돼요.</p>
+  </section>
+
+  <!-- STEP 1 -->
+  <section class="panel" data-panel="1">
+    <span class="kicker" style="color:var(--q)">Step 01 — Beyond This Track</span>
+    <h2>너머의 주제들 — 더 깊은 곳</h2>
+    <p class="lead">입문에서 일부러 미룬, 실무에서 만나는 깊은 주제들이에요. 각 카드를 눌러 무엇이고 언제 필요한지 보세요. 지금 다 알 필요는 없어요 — "이런 게 있구나" 정도면 충분하고, 필요할 때 찾아 들어가면 돼요.</p>
+    <div class="toggles" id="topics"></div>
+    <div class="scene" id="s1"></div>
+    <p class="big" id="lab1"></p>
+    <p class="note" style="margin-top:6px">→ 이 트랙의 멘탈 모델이 있으면, 이 주제들도 "어디에 붙는 이야기"인지 빠르게 자리잡혀요.</p>
+  </section>
+
+  <!-- STEP 2 -->
+  <section class="panel" data-panel="2">
+    <span class="kicker" style="color:var(--v)">Step 02 — Next Steps</span>
+    <h2>다음 발걸음 — 멘탈 모델에서 실력으로</h2>
+    <p class="lead">정직하게 — 이 트랙은 <b>"왜 이렇게 도는지"의 직관</b>이지, 손이 기억하는 <b>실력</b>은 아니에요. 그건 직접 만들어봐야 생겨요. 아래 순서가 자연스러운 다음 걸음이에요. 항목을 눌러보세요.</p>
+    <div class="toggles" id="steps"></div>
+    <div class="scene" id="s2"></div>
+    <p class="big" id="lab2"></p>
+    <p class="note" style="margin-top:6px">→ 멘탈 모델 + 직접 빌드 = 진짜 이해. 막힐 때 이 트랙으로 돌아와 "어느 축의 문제지?"를 떠올려 보세요.</p>
+  </section>
+
+  <!-- STEP 3 -->
+  <section class="panel" data-panel="3">
+    <span class="kicker" style="color:var(--good)">Step 03 — Closing</span>
+    <h2>마무리 — 노드들의 합주를 읽는 눈</h2>
+    <p class="lead">처음엔 "메시지가 도착하면 콜백이 돈다" 정도였다면, 이제 <b>누가 보내고(토픽) · 어떻게 받고(QoS) · 언제 돌고(executor) · 어느 좌표에서(tf) · 어떻게 만나는지(디스커버리)</b>까지 보여요. ROS2는 결국 <b>작은 노드들이 메시지로 협력하는 합주</b>예요. 그 악보를 읽는 눈이 생겼다면, 어떤 로봇 시스템 앞에서도 길을 잃지 않을 거예요.</p>
+    <div class="scene" id="s3"></div>
+    <p class="big" id="lab3"></p>
+    <div class="links">
+      <a href="15-binpicking.html"><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--pink)">캡스톤 다시</div><div style="color:var(--ink);font-weight:700;margin-top:4px">15 · 빈피킹 시스템</div><div style="color:var(--muted);font-size:12.5px;margin-top:4px">배운 걸 한 시스템으로</div></a>
+      <a href="index.html"><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--q)">처음으로</div><div style="color:var(--ink);font-weight:700;margin-top:4px">전체 목차</div><div style="color:var(--muted);font-size:12.5px;margin-top:4px">아무 챕터나 다시 보기</div></a>
+    </div>
+    <p class="note" style="margin-top:14px">// 잡는 기하·품질의 <b>원리</b>가 궁금하면 자매 트랙 "그래스핑·빈피킹, 눈으로 보기"로. ROS2(연결) + 그래스핑(잡기) = 빈피킹 한 바퀴.</p>
+  </section>
+
+  <p class="foot">// 코드 없는 직관 입문 · <a href="index.html">목차</a></p>
+</div>
+
+<script src="shared/lib.js"></script>
+<script src="shared/lib-ros.js"></script>
+<script>
+VZ.mountTopnav('#topnav', '16 · 너머');
+VZ.setupStepper();
+const R=VZ.ROS, fmt=VZ.fmt, clamp=VZ.clamp;
+
+// ===== STEP 0: the road =====
+(function(){ const W=460,H=210;
+  const PARTS=[['A','연결','var(--q)'],['B','통신 방식','var(--v)'],['C','QoS','var(--hot)'],['D','Executor','var(--hot)'],['E','공간·시스템','var(--good)'],['F','실전','var(--pink)']];
+  let s=`<text x="${W/2}" y="28" fill="var(--ink)" font-size="12" font-family="monospace" text-anchor="middle">마스터 없는 노드 → 빈피킹 시스템</text>`;
+  // 지그재그 경로
+  PARTS.forEach((p,i)=>{ const x=40+ i*((W-80)/5); const y= 70+ (i%2)*60;
+    s+=`<circle cx="${x}" cy="${y}" r="22" fill="var(--panel)" stroke="${p[2]}" stroke-width="2"/><text x="${x}" y="${y-2}" fill="${p[2]}" font-size="12" font-family="monospace" text-anchor="middle" font-weight="700">${p[0]}</text><text x="${x}" y="${y+11}" fill="var(--muted)" font-size="7.5" font-family="monospace" text-anchor="middle">${p[1]}</text>`;
+    if(i<5){ const nx=40+(i+1)*((W-80)/5), ny=70+((i+1)%2)*60; s+=R.edge(x+16,y+(ny>y?14:-14),nx-16,ny+(ny>y?-14:14),{color:'var(--line)',lw:1.6}); }
+  });
+  s+=`<text x="${40}" y="180" fill="var(--muted)" font-size="9" font-family="monospace" text-anchor="middle">시작</text>`;
+  s+=`<text x="${40+5*((W-80)/5)}" y="180" fill="var(--good)" font-size="9" font-family="monospace" text-anchor="middle">★ 여기</text>`;
+  document.getElementById('s0').innerHTML=R.svg(W,H,s,'코스 회고');
+  document.getElementById('lab0').innerHTML='다섯 축 — <b>연결 · QoS · executor · 공간 · 시스템</b> — 이 지도가 남았다면 충분해요.';
+})();
+
+// ===== STEP 1: beyond topics =====
+(function(){ let sel=0;
+  const T=[
+    {k:'실시간 (Real-time)',why:'정해진 시간 안에 반드시 응답해야 하는 제어. 일반 OS·기본 설정으론 보장 안 돼요 — RT 커널, 메모리 잠금, 전용 executor가 필요. 모터 제어 루프처럼 지연이 곧 사고인 곳.'},
+    {k:'라이프사이클 노드',why:'노드를 unconfigured→inactive→active처럼 상태를 갖게 해, "준비된 뒤에만 동작"을 보장. 센서 켜지기 전에 제어가 시작되는 사고를 막아요.'},
+    {k:'보안 (SROS2)',why:'디스커버리가 열려 있으면 누구나 토픽을 엿보거나 끼어들 수 있어요. 인증·암호화로 노드 간 통신을 보호하는 게 SROS2.'},
+    {k:'시뮬레이션',why:'실제 로봇 없이 물리 시뮬레이터에서 같은 노드를 돌려 테스트. tf·토픽·센서가 똑같이 작동해, 코드를 그대로 실기에 옮길 수 있어요.'},
+    {k:'컴포지션',why:'여러 노드를 한 프로세스에 담아 메시지 복사 없이(zero-copy 유사) 빠르게 주고받기. 고대역 영상 파이프라인에서 성능에 큰 차이.'},
+    {k:'DDS 튜닝',why:'밑단 DDS의 전송·버퍼·디스커버리 설정을 조정. 대규모·고대역·불안정 네트워크에서 성능과 안정성을 끌어올려요.'},
+  ];
+  const tp=document.getElementById('topics');
+  tp.innerHTML=T.map((t,i)=>`<button data-i="${i}">${t.k}</button>`).join('');
+  function render(){ const W=460,H=160; const t=T[sel]; let s='';
+    s+=`<rect x="14" y="14" width="${W-28}" height="${H-28}" rx="12" fill="var(--panel-2)" stroke="${R.C.topic}"/>`;
+    s+=`<text x="32" y="42" fill="${R.C.topic}" font-size="14" font-family="monospace" font-weight="700">${t.k}</text>`;
+    s+=`<foreignObject x="32" y="54" width="${W-64}" height="94"><div xmlns="http://www.w3.org/1999/xhtml" style="font-family:monospace;font-size:12.5px;line-height:1.6;color:#cdd6f4">${t.why}</div></foreignObject>`;
+    document.getElementById('s1').innerHTML=R.svg(W,H,s,t.k);
+    document.querySelectorAll('#topics button').forEach((b,i)=>{ const on=i===sel; b.classList.toggle('on',on); b.style.background=on?R.C.topic:'var(--panel-2)'; b.style.color=on?'#0b0e14':'var(--muted)'; });
+    document.getElementById('lab1').innerHTML='지금은 "이런 게 있구나"면 충분 — 필요할 때 찾아 들어가세요.';
+  }
+  tp.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return; sel=+b.dataset.i; render(); });
+  render();
+})();
+
+// ===== STEP 2: next steps =====
+(function(){ let sel=0;
+  const S=[
+    {k:'1. talker/listener 직접',why:'가장 작은 pub/sub 한 쌍을 직접 만들어 메시지가 흐르는 걸 손으로 확인. CH 01·02가 살아나는 순간이에요.'},
+    {k:'2. CLI로 들여다보기',why:'ros2 node/topic/service list·info·echo·hz로 돌아가는 시스템을 관찰. CH 01·02·07의 디버깅 감각을 몸에 익혀요.'},
+    {k:'3. QoS·executor 실험',why:'센서 토픽을 Reliable↔BestEffort로 바꿔 드롭을 관찰하고, 긴 콜백을 단일/멀티 스레드로 돌려 차이를 체감(CH 06·08·10·11).'},
+    {k:'4. 작은 시스템 launch',why:'노드 두셋을 네임스페이스·리매핑·파라미터로 묶어 launch로 한 번에 띄우기(CH 14). 시스템을 "구성"하는 감각.'},
+    {k:'5. 자매 트랙과 합치기',why:'그래스핑 트랙의 잡기 원리 + 이 트랙의 연결을 합쳐, 작은 픽 파이프라인을 노드로 엮어보기(CH 15).'},
+  ];
+  const st=document.getElementById('steps');
+  st.innerHTML=S.map((x,i)=>`<button data-i="${i}">${x.k.split('.')[0]}</button>`).join('');
+  function render(){ const W=460,H=160; const x=S[sel]; let s='';
+    s+=`<rect x="14" y="14" width="${W-28}" height="${H-28}" rx="12" fill="var(--panel-2)" stroke="${R.C.ok}"/>`;
+    s+=`<text x="32" y="42" fill="${R.C.ok}" font-size="14" font-family="monospace" font-weight="700">${x.k}</text>`;
+    s+=`<foreignObject x="32" y="54" width="${W-64}" height="94"><div xmlns="http://www.w3.org/1999/xhtml" style="font-family:monospace;font-size:12.5px;line-height:1.6;color:#cdd6f4">${x.why}</div></foreignObject>`;
+    document.getElementById('s2').innerHTML=R.svg(W,H,s,x.k);
+    document.querySelectorAll('#steps button').forEach((b,i)=>{ const on=i===sel; b.classList.toggle('on',on); b.style.background=on?R.C.ok:'var(--panel-2)'; b.style.color=on?'#0b0e14':'var(--muted)'; });
+    document.getElementById('lab2').innerHTML='순서대로 밟으면, 이 트랙의 그림이 <b>손의 기억</b>으로 바뀌어요.';
+  }
+  st.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return; sel=+b.dataset.i; render(); });
+  render();
+})();
+
+// ===== STEP 3: closing =====
+(function(){ const W=460,H=140;
+  let s=`<text x="${W/2}" y="58" fill="var(--good)" font-size="15" font-family="monospace" text-anchor="middle" font-weight="700">작은 노드들이 메시지로 협력하는 합주</text>`;
+  s+=`<text x="${W/2}" y="86" fill="var(--muted)" font-size="11.5" font-family="monospace" text-anchor="middle">누가 보내고 · 어떻게 받고 · 언제 돌고 · 어느 좌표에서 · 어떻게 만나는지</text>`;
+  s+=`<text x="${W/2}" y="112" fill="var(--ink)" font-size="12" font-family="monospace" text-anchor="middle">— 이제 그 악보가 읽혀요.</text>`;
+  document.getElementById('s3').innerHTML=R.svg(W,H,s,'마무리');
+  document.getElementById('lab3').innerHTML='끝까지 함께해줘서 고마워요. 어떤 로봇 시스템 앞에서도 길을 잃지 않길!';
+})();
+</script>
+</body>
+</html>

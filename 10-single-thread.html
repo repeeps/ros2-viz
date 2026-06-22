@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>10 · 단일 스레드 — ROS2, 눈으로 보기</title>
+<link rel="stylesheet" href="shared/theme.css">
+<link rel="icon" type="image/svg+xml" href="shared/favicon.svg">
+<style>
+  .scene{cursor:default;}
+  .big{font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--ink); margin:8px 2px 0;}
+  .ctl{display:flex; align-items:center; gap:10px; margin:10px 0; flex-wrap:wrap;}
+  .ctl label{font-size:13px; color:var(--muted);}
+  svg{display:block; width:100%; background:var(--panel-2); border:1px solid var(--line); border-radius:12px;}
+  .toggles{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+  .toggles button{font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:8px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);cursor:pointer}
+  .toggles button.on{color:#0b0e14;font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topnav" id="topnav"></div>
+
+  <header>
+    <div class="tag" style="color:var(--hot)">PART D · Executor — CH 10 · 핵심</div>
+    <h1>단일 스레드 — 한 줄로 줄서기</h1>
+    <p class="intro">ROS2의 기본 executor(SingleThreadedExecutor)는 콜백을 <b>한 번에 하나씩, 차례로</b> 실행해요. 일꾼이 <b>딱 한 명</b>이라, 한 콜백이 도는 동안 다른 콜백은 <b>전부 기다려야</b> 해요. 평소엔 문제없지만, 콜백 하나가 <b>오래 걸리면</b> 뒤에 줄 선 콜백들이 밀리고(타이머가 박자를 놓치고, 메시지가 큐에서 드롭되고), 최악엔 콜백 안에서 자기 자신을 기다리는 <b>데드락</b>까지 가요. CH 03에서 예고한 그 데드락의 정체를 여기서 끝까지 봐요. "왜 내 타이머가 가끔 안 돌지?", "왜 멈췄지?"의 답이 여기 있어요.</p>
+  </header>
+
+  <nav class="stepper" id="stepper">
+    <button data-s="0" class="active">00 · 한 줄로 차례차례</button>
+    <button data-s="1">01 · 긴 콜백이 막으면</button>
+    <button data-s="2">02 · 데드락의 정체</button>
+    <button data-s="3">03 · 정리</button>
+  </nav>
+
+  <!-- STEP 0 -->
+  <section class="panel show" data-panel="0">
+    <span class="kicker" style="color:var(--hot)">Step 00 — One at a Time</span>
+    <h2>일꾼은 한 명 — 콜백은 한 줄로</h2>
+    <p class="lead">단일 스레드 executor는 <b>한 줄(레인)</b>이에요. 콜백 A·B·C가 준비돼도 동시에 못 돌고 <b>차례로</b> 실행돼요. ▶를 누르면 간트 차트에서 콜백들이 한 줄에 <b>겹치지 않고</b> 줄 서는 걸 봐요. 각자 짧으면 줄이 빨리 빠져 문제없어요.</p>
+    <div class="ctl"><button class="btn play" id="go0">▶ 실행</button> <button class="btn" id="rst0">↺ 리셋</button></div>
+    <div class="scene" id="s0"></div>
+    <p class="big" id="lab0"></p>
+    <p class="note" style="margin-top:6px">→ 한 줄이라 <b>순서·타이밍이 예측 가능</b>한 게 장점이에요 — 여러 콜백이 동시에 안 도니 같은 데이터를 두고 충돌하는 "경쟁 상태"가 없죠(이건 <a href="11-multi-thread.html" style="color:var(--q)">CH 11</a>에서). 대신 동시성이 없어요.</p>
+  </section>
+
+  <!-- STEP 1 -->
+  <section class="panel" data-panel="1">
+    <span class="kicker" style="color:var(--q)">Step 01 — A Slow Callback Blocks All</span>
+    <h2>긴 콜백 하나가 — 전부 밀리게 한다</h2>
+    <p class="lead">콜백 B의 길이를 슬라이더로 늘려보세요. B가 도는 동안 <b>10Hz 타이머</b>는 제때 못 돌고(박자 놓침), 들어온 메시지는 큐에 쌓이다 <b>드롭</b>돼요. 한 명뿐인 일꾼이 B에 붙잡혀 있으니까요. 이래서 ROS2에선 "콜백은 <b>짧게</b> 유지하라"가 철칙이에요 — 무거운 일은 따로 빼야 해요.</p>
+    <div class="ctl"><label>콜백 B 길이 <span id="bvL" style="color:var(--hot)">0.6s</span></label><input type="range" id="bv" min="0.2" max="2.0" step="0.1" value="0.6" style="flex:1"><button class="btn play" id="go1">▶ 실행</button></div>
+    <div class="scene" id="s1"></div>
+    <p class="big" id="lab1"></p>
+    <p class="note" style="margin-top:6px">→ <b style="color:var(--hot)">✕</b> = 일꾼이 B에 묶여 그 주기에 <b>못 돈(건너뛴)</b> 타이머. 놓친 박자는 <b>되돌아오지 않아요</b>. 같은 이유로 큐에 쌓인 메시지도 드롭되죠. 긴 콜백의 대가예요.</p>
+  </section>
+
+  <!-- STEP 2 -->
+  <section class="panel" data-panel="2">
+    <span class="kicker" style="color:var(--v)">Step 02 — The Deadlock</span>
+    <h2>데드락의 정체 — 일꾼이 자기를 기다린다</h2>
+    <p class="lead">CH 03에서 예고한 데드락이에요. 콜백 A가 도는 <b>도중에</b> 다른 서비스를 <b>동기로</b> 부르고 <b>응답을 기다려요</b>. 그런데 그 응답을 처리할(콜백을 꺼낼) 일꾼은 <b>지금 A를 돌고 있는 바로 그 한 명</b>이에요. A는 응답을 기다리고, 응답은 A가 끝나야 처리되고… <b>서로가 서로를 기다려 영영 안 풀려요</b>. ▶로 이 교착을 단계별로 보세요.</p>
+    <div class="ctl"><button class="btn play" id="go2">▶ 데드락 재현</button> <button class="btn" id="rst2">↺ 리셋</button></div>
+    <div class="scene" id="s2"></div>
+    <p class="big" id="lab2"></p>
+    <p class="note" style="margin-top:6px">→ 해법: 콜백 안에서 <b>동기로 기다리지 말기</b>(비동기 future), 또는 <b>멀티 스레드/콜백 그룹</b>으로 일꾼을 늘리기 → 다음 챕터.</p>
+  </section>
+
+  <!-- STEP 3 -->
+  <section class="panel" data-panel="3">
+    <span class="kicker" style="color:var(--good)">Step 03 — Takeaways</span>
+    <h2>정리 — 단일 스레드</h2>
+    <p class="lead">단일 스레드 executor는 콜백을 <b>한 줄로 차례차례</b> — 예측 가능하지만 동시성 없음. 긴 콜백은 <b>뒤를 다 막아</b> 타이머 놓침·드롭을 부르고, 콜백 안 동기 대기는 <b>데드락</b>이에요. 그래서 <b>콜백은 짧게</b>가 철칙이죠. 무거운 일을 동시에 처리하거나, 콜백 안에서 다른 콜백을 안전하게 기다리려면 일꾼을 늘려야 해요 — <b>멀티 스레드와 콜백 그룹</b>이에요.</p>
+    <div class="scene" id="s3"></div>
+    <p class="big" id="lab3"></p>
+    <p class="note" style="margin-top:14px">→ 다음 → <a href="11-multi-thread.html" style="color:var(--q);font-weight:700">CH 11 · 멀티 스레드와 콜백 그룹</a></p>
+  </section>
+
+  <p class="foot">// 코드 없는 직관 입문 · <a href="index.html">목차</a></p>
+</div>
+
+<script src="shared/lib.js"></script>
+<script src="shared/lib-ros.js"></script>
+<script>
+VZ.mountTopnav('#topnav', '10 · 단일 스레드');
+VZ.setupStepper();
+const R=VZ.ROS, fmt=VZ.fmt, clamp=VZ.clamp;
+
+// ===== STEP 0: serial gantt, one lane =====
+(function(){ const W=460,H=150; let cancel=null; const tmax=3;
+  const tasks=[{lane:'스레드',t0:0.2,dur:0.4,label:'A',color:R.C.q||'var(--q)'},{lane:'스레드',t0:0.6,dur:0.5,label:'B',color:'var(--v)'},{lane:'스레드',t0:1.1,dur:0.35,label:'C',color:R.C.ok},{lane:'스레드',t0:1.45,dur:0.4,label:'A',color:R.C.q||'var(--q)'},{lane:'스레드',t0:1.85,dur:0.5,label:'B',color:'var(--v)'}];
+  function render(p){ const now=p*tmax;
+    let s=R.gantt(W,H,['스레드'],tasks.filter(t=>t.t0<now+0.001).map(t=>({...t,dur:Math.min(t.dur,now-t.t0)})),tmax,{playhead:now,tick:1});
+    document.getElementById('s0').innerHTML=R.svg(W,H,s,'단일 스레드 직렬 실행');
+    document.getElementById('lab0').innerHTML = p<0.05?'▶로 실행하세요.':'콜백 A·B·C가 한 줄에서 <b>겹치지 않고</b> 차례로 돌아요 — 일꾼이 하나니까요.';
+  }
+  document.getElementById('go0').onclick=()=>{ if(cancel)cancel(); cancel=VZ.LA.tween(p=>render(p),3000,()=>render(1)); };
+  document.getElementById('rst0').onclick=()=>{ if(cancel)cancel(); render(0); };
+  render(0);
+})();
+
+// ===== STEP 1: long callback blocks timer + drops =====
+(function(){ let cancel=null, bdur=0.6;
+  const bv=document.getElementById('bv'), bvL=document.getElementById('bvL');
+  bv.oninput=()=>{ bdur=+bv.value; bvL.textContent=bdur.toFixed(1)+'s'; };
+  function render(p){ const W=460,H=180; const tmax=3.2; const now=p*tmax;
+    // 스레드 레인: A(0.1,0.3), B(0.4, bdur), 그 뒤 C
+    const tasks=[{lane:'일꾼',t0:0.1,dur:0.3,label:'A',color:R.C.q||'var(--q)'},{lane:'일꾼',t0:0.4,dur:bdur,label:'B (긴 작업)',color:'var(--v)'},{lane:'일꾼',t0:0.4+bdur,dur:0.3,label:'C',color:R.C.ok}];
+    let s=R.gantt(W,H,['일꾼','타이머 10Hz'],tasks.filter(t=>t.t0<now+0.001).map(t=>({...t,dur:Math.min(t.dur,now-t.t0)})),tmax,{playhead:now,tick:0.8});
+    // 타이머 기대 시각: 0.5,0.6,0.7... 실제론 B가 도는 동안 못 돔 → ✕
+    const padL=64, xx=t=>padL+(t/tmax)*(W-padL-14);
+    const laneH=(H-16-22)/2, ty=16+laneH+laneH/2;
+    for(let tt=0.5; tt<tmax; tt+=0.1){ if(tt>now)break;
+      const blocked = (tt>=0.4 && tt<0.4+bdur); // B 도는 동안
+      if(blocked) s+=`<text x="${xx(tt).toFixed(1)}" y="${ty+4}" fill="var(--hot)" font-size="11" text-anchor="middle" font-weight="700">✕</text>`;
+      else s+=`<circle cx="${xx(tt).toFixed(1)}" cy="${ty}" r="3" fill="${R.C.ok}"/>`;
+    }
+    // 드롭된 메시지 (B 도는 동안 큐 오버플로 가정)
+    let missed=0; for(let tt=0.5;tt<Math.min(now,0.4+bdur);tt+=0.1){ if(tt>=0.4) missed++; }
+    document.getElementById('s1').innerHTML=R.svg(W,H,s,'긴 콜백이 막음');
+    document.getElementById('lab1').innerHTML = p<0.05?'B 길이를 정하고 ▶로 실행하세요.': bdur>=0.8? `B가 <b>${bdur.toFixed(1)}초</b> 도는 동안 타이머가 <b style="color:var(--hot)">${missed}박자 놓치고</b> 뒤 콜백이 밀려요.`:`B가 짧아 큰 문제 없어요 — B를 더 늘려보세요(타이머가 놓치기 시작해요).`;
+  }
+  document.getElementById('go1').onclick=()=>{ if(cancel)cancel(); cancel=VZ.LA.tween(p=>render(p),3400,()=>render(1)); };
+  render(0);
+})();
+
+// ===== STEP 2: deadlock step by step =====
+(function(){ const W=460,H=210; let cancel=null;
+  function render(p){ let s='';
+    const thX=110, svX=350;
+    s+=R.box(thX-58,30,116,40,'일꾼 스레드',{color:R.C.node,sub:'콜백 A 실행 중'});
+    s+=R.box(svX-58,24,116,46,'같은 노드의 서비스',{color:R.C.topic,sub:'응답도 이 executor가 처리'});
+    // 단계: 0.0-0.3 A 시작, 0.3-0.5 동기 호출 요청, 0.5+ 대기(교착)
+    let stage = p<0.3?0 : p<0.55?1 : 2;
+    if(stage>=1){ const u=clamp((p-0.3)/0.25,0,1); const pt=R.lerp2([thX,70],[svX,70],u); s+=R.edge(thX,70,svX,70,{color:R.C.msg,lw:1.6}); if(u<1)s+=R.packet(pt[0],pt[1],{}); s+=`<text x="${(thX+svX)/2}" y="62" fill="${R.C.msg}" font-size="9.5" font-family="monospace" text-anchor="middle">동기 호출 (응답 대기)</text>`; }
+    if(stage>=2){
+      // 교착 다이어그램
+      s+=`<rect x="50" y="92" width="${W-100}" height="100" rx="12" fill="rgba(251,113,133,.08)" stroke="${R.C.dead}" stroke-width="1.5" stroke-dasharray="5 3"/>`;
+      s+=`<text x="${W/2}" y="116" fill="${R.C.dead}" font-size="14" font-family="monospace" text-anchor="middle" font-weight="700">⛔ 데드락</text>`;
+      // 순환 대기
+      s+=`<text x="${W/2}" y="142" fill="var(--ink)" font-size="11" font-family="monospace" text-anchor="middle">A는 응답을 기다림 ⟳ 응답은 A가 끝나야 처리됨</text>`;
+      s+=`<text x="${W/2}" y="162" fill="var(--muted)" font-size="10" font-family="monospace" text-anchor="middle">일꾼이 하나뿐이라 — 그 한 명이 A에 묶여 응답을 못 꺼냄</text>`;
+      s+=`<text x="${W/2}" y="180" fill="var(--muted)" font-size="10" font-family="monospace" text-anchor="middle">→ 서로가 서로를 기다려 영영 안 풀림</text>`;
+    } else {
+      s+=`<text x="${W/2}" y="150" fill="var(--muted)" font-size="11" font-family="monospace" text-anchor="middle">${stage===0?'콜백 A가 실행을 시작…':'A가 응답을 기다리기 시작…'}</text>`;
+    }
+    document.getElementById('s2').innerHTML=R.svg(W,H,s,'단일 스레드 데드락');
+    document.getElementById('lab2').innerHTML = stage<2? (stage===0?'콜백 A가 도는 중 — 곧 다른 서비스를 <b>동기로</b> 불러요.':'A가 응답을 <b>기다리기</b> 시작했어요…'): '<b style="color:var(--dead)">데드락</b> — 일꾼 하나가 자기가 끝나길 자기가 기다려요. 영영 안 끝나요.';
+  }
+  document.getElementById('go2').onclick=()=>{ if(cancel)cancel(); cancel=VZ.LA.tween(p=>render(p),3000,()=>render(1)); };
+  document.getElementById('rst2').onclick=()=>{ if(cancel)cancel(); render(0); };
+  render(0);
+})();
+
+// ===== STEP 3: takeaways =====
+(function(){ const W=460,H=150;
+  let s=`<text x="${W/2}" y="24" fill="var(--good)" font-size="13" font-family="monospace" text-anchor="middle" font-weight="700">단일 스레드 = 일꾼 한 명, 한 줄</text>`;
+  const rows=[['장점','순서·타이밍 예측 가능 (경쟁 상태 없음)',R.C.ok],['약점','긴 콜백이 전부 막음 → 놓침·드롭','var(--hot)'],['함정','콜백 안 동기 대기 = 데드락',R.C.dead],['철칙','콜백은 짧게! 무거운 일은 빼라',R.C.q||'var(--q)']];
+  rows.forEach((r,i)=>{ const y=38+i*28; s+=`<rect x="20" y="${y}" width="${W-40}" height="24" rx="7" fill="var(--panel)" stroke="${r[2]}" stroke-width="1.1"/><text x="34" y="${y+16}" fill="${r[2]}" font-size="11.5" font-family="monospace" font-weight="700">${r[0]}</text><text x="100" y="${y+16}" fill="var(--ink)" font-size="10.5" font-family="monospace">${r[1]}</text>`; });
+  document.getElementById('s3').innerHTML=R.svg(W,H,s,'정리');
+  document.getElementById('lab3').innerHTML=`일꾼을 늘리면? 동시 처리도, 안전한 대기도 가능해요 → <b>멀티 스레드·콜백 그룹</b>.`;
+})();
+</script>
+</body>
+</html>

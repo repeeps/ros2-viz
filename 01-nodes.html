@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>01 · 노드 — ROS2, 눈으로 보기</title>
+<link rel="stylesheet" href="shared/theme.css">
+<link rel="icon" type="image/svg+xml" href="shared/favicon.svg">
+<style>
+  .scene{cursor:default;}
+  .big{font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--ink); margin:8px 2px 0;}
+  .ctl{display:flex; align-items:center; gap:10px; margin:10px 0; flex-wrap:wrap;}
+  .ctl label{font-size:13px; color:var(--muted);}
+  svg{display:block; width:100%; background:var(--panel-2); border:1px solid var(--line); border-radius:12px;}
+  .term{font-family:'JetBrains Mono',monospace; font-size:12.5px; background:#0a0d13; border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-top:10px; line-height:1.7; color:#cdd6f4; white-space:pre-wrap;}
+  .term .pmt{color:var(--good);} .term .cmd{color:var(--ink);} .term .out{color:var(--muted);}
+  .toggles{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+  .toggles button{font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:8px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);cursor:pointer}
+  .toggles button.on{color:#0b0e14;font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topnav" id="topnav"></div>
+
+  <header>
+    <div class="tag" style="color:var(--q)">PART A · 연결 — CH 01</div>
+    <h1>노드 — 일하는 작은 단위</h1>
+    <p class="intro">ROS2에서 <b>노드(node)</b>는 "한 가지 일을 하는 작은 프로그램"이에요. 카메라를 읽는 노드, 물체를 인식하는 노드, 팔을 움직이는 노드처럼요. 로봇 시스템은 이런 노드 <b>수십 개가 동시에</b> 돌아가는 모습이에요. 왜 하나로 안 만들고 잘게 쪼갤까요? <b>각자 따로 켜고 끄고, 따로 고장나고, 부품처럼 갈아 끼울 수</b> 있기 때문이에요. 이 챕터에서 노드가 무엇이고, 어떻게 켜지고 죽고, 그 안에 무엇이 들었는지 봐요.</p>
+  </header>
+
+  <nav class="stepper" id="stepper">
+    <button data-s="0" class="active">00 · 노드가 켜진다</button>
+    <button data-s="1">01 · 노드 리스트</button>
+    <button data-s="2">02 · 노드 안을 들여다보기</button>
+    <button data-s="3">03 · 정리</button>
+  </nav>
+
+  <!-- STEP 0 -->
+  <section class="panel show" data-panel="0">
+    <span class="kicker" style="color:var(--hot)">Step 00 — Nodes Come Alive</span>
+    <h2>로봇 = 작은 노드 여러 개</h2>
+    <p class="lead">▶를 누르면 빈 시스템에 노드가 <b>하나씩 켜져요</b>. 각 노드는 독립된 작은 프로그램이고, 살아있는 동안 <b>심장처럼 깜빡여요</b>(이 트랙에선 "살아있음" 표시예요). 아직 서로 연결은 없어요 — 그저 <b>각자 떠 있는</b> 상태죠. 노드를 어떻게 잇는지는 다음 챕터(토픽)에서 봐요.</p>
+    <div class="ctl"><button class="btn play" id="go0">▶ 노드 켜기</button> <button class="btn" id="rst0">↺ 리셋</button></div>
+    <div class="scene" id="s0"></div>
+    <p class="big" id="lab0"></p>
+    <p class="note" style="margin-top:6px">→ 노드 하나 = 한 가지 책임. "큰 프로그램 하나"가 아니라 "작은 프로그램 여럿"이 ROS2의 출발점이에요.</p>
+  </section>
+
+  <!-- STEP 1 -->
+  <section class="panel" data-panel="1">
+    <span class="kicker" style="color:var(--q)">Step 01 — ros2 node list</span>
+    <h2>노드 리스트 — 켜고 끄기</h2>
+    <p class="lead">각 노드를 <b>눌러</b> 켜고 꺼보세요. 노드는 <b>이름으로 식별</b>돼요. 실제 ROS2에서 <code>ros2 node list</code>를 치면 지금 살아있는 노드 이름이 나오는데, 아래 터미널이 그걸 흉내내요. 노드를 꺼도 <b>다른 노드는 멀쩡</b>하다는 점에 주목하세요 — 독립적이니까요.</p>
+    <div class="toggles" id="tg"></div>
+    <div class="scene" id="s1"></div>
+    <div class="term" id="term1"></div>
+    <p class="note" style="margin-top:6px">→ 같은 이름의 노드를 두 번 띄우면 충돌해요(이름은 고유해야). 이름을 바꿔 같은 노드를 여럿 띄우는 법은 <a href="14-system.html" style="color:var(--q)">CH 14</a>에서.</p>
+  </section>
+
+  <!-- STEP 2 -->
+  <section class="panel" data-panel="2">
+    <span class="kicker" style="color:var(--v)">Step 02 — ros2 node info</span>
+    <h2>노드 안을 들여다보기 — 입출력 단자</h2>
+    <p class="lead">노드는 깜깜한 상자가 아니에요. 바깥과 연결되는 <b>단자(endpoint)</b>를 가져요 — 메시지를 <b>내보내는 발행자</b>, <b>받아오는 구독자</b>, 주기적으로 자기를 깨우는 <b>타이머</b>, 요청에 답하는 <b>서비스</b>. 노드를 <b>눌러</b> 그 단자들을 보세요. 실제 <code>ros2 node info</code>가 보여주는 게 바로 이거예요.</p>
+    <div class="scene" id="s2"></div>
+    <div class="term" id="term2"></div>
+    <p class="note" style="margin-top:6px">→ <b style="color:var(--good)">발행/구독</b> 단자가 다음 챕터의 주인공(토픽)이에요. 노드끼리는 이 단자들이 <b>같은 토픽 이름</b>으로 맞물려 연결돼요.</p>
+  </section>
+
+  <!-- STEP 3 -->
+  <section class="panel" data-panel="3">
+    <span class="kicker" style="color:var(--good)">Step 03 — Takeaways</span>
+    <h2>정리 — 노드를 한 문장으로</h2>
+    <p class="lead">노드는 <b>한 가지 일을 하는, 이름을 가진, 따로 켜고 끌 수 있는 작은 프로그램</b>이에요. 시스템은 이런 노드들의 모임이고요. 다음은 이 노드들을 <b>어떻게 잇는가</b> — 토픽이에요.</p>
+    <div class="scene" id="s3"></div>
+    <p class="big" id="lab3"></p>
+    <p class="note" style="margin-top:14px">→ 다음 → <a href="02-topics.html" style="color:var(--q);font-weight:700">CH 02 · 토픽과 발행·구독</a></p>
+  </section>
+
+  <p class="foot">// 코드 없는 직관 입문 · <a href="index.html">목차</a></p>
+</div>
+
+<script src="shared/lib.js"></script>
+<script src="shared/lib-ros.js"></script>
+<script>
+VZ.mountTopnav('#topnav', '01 · 노드');
+VZ.setupStepper();
+const R=VZ.ROS, fmt=VZ.fmt, clamp=VZ.clamp;
+const NODES=[{id:'camera',label:'카메라',sub:'/camera'},{id:'detector',label:'인식',sub:'/detector'},{id:'planner',label:'계획',sub:'/planner'},{id:'arm',label:'팔',sub:'/arm_driver'}];
+// 4개를 2×2 격자로 배치
+function gridPos(i,W){ const cols=2, cw=W/cols, ch=70; const r=Math.floor(i/cols), c=i%cols; return {x:c*cw+ (cw-104)/2, y:24+r*84, w:104, h:50}; }
+
+// ===== STEP 0: nodes come alive (heartbeat) =====
+(function(){ const W=460,H=200; let cancel=null, t=0;
+  function litCount(p){ const f=p*NODES.length, whole=Math.floor(f+1e-4); return Math.min(NODES.length, whole + ((f-whole>0.4)?1:0)); }
+  function render(p){ let s=''; const lit=litCount(p); // 켜진 노드 개수(그림·라벨 공용)
+    NODES.forEach((n,i)=>{ const g=gridPos(i,W); const alive=i<lit;
+      const beat = alive? 0.5+0.5*Math.abs(Math.sin((t*3)+(i))) : 0;
+      s+=R.box(g.x,g.y,g.w,g.h,n.label,{color:alive?R.C.node:'var(--line)',sub:n.sub,dim:!alive});
+      // 심장 점
+      s+=`<circle cx="${g.x+g.w-14}" cy="${g.y+14}" r="4.5" fill="${alive?R.C.ok:'var(--line)'}" opacity="${alive?(0.35+0.65*beat).toFixed(2):0.3}"/>`;
+    });
+    document.getElementById('s0').innerHTML=R.svg(W,H,s,'노드가 하나씩 켜지는 그림');
+    document.getElementById('lab0').innerHTML = lit===0&&p<0.05 ? '빈 시스템 — ▶로 노드를 켜세요.'
+      : `살아있는 노드 <b style="color:var(--good)">${lit}개</b> — 각자 독립 프로그램, 아직 서로 연결은 없어요.`;
+  }
+  function loop(){ cancel=VZ.LA.tween(p=>{t=p*4; render(p);},3200,()=>{ // 켜진 뒤에도 심장은 계속
+      let b=0; const beat=VZ.LA.tween(q=>{t=4+q*6;render(1);},6000,()=>{}); cancel=beat; }); }
+  document.getElementById('go0').onclick=()=>{ if(cancel)cancel(); t=0; loop(); };
+  document.getElementById('rst0').onclick=()=>{ if(cancel)cancel(); t=0; render(0); };
+  render(0);
+})();
+
+// ===== STEP 1: node list, toggle on/off =====
+(function(){ const W=460,H=200; const on=[true,true,true,true];
+  const tg=document.getElementById('tg');
+  tg.innerHTML=NODES.map((n,i)=>`<button data-i="${i}">${n.label}</button>`).join('');
+  function render(){ let s='';
+    NODES.forEach((n,i)=>{ const g=gridPos(i,W); s+=R.box(g.x,g.y,g.w,g.h,n.label,{color:on[i]?R.C.node:'var(--line)',sub:n.sub,dim:!on[i]});
+      s+=`<circle cx="${g.x+g.w-14}" cy="${g.y+14}" r="4.5" fill="${on[i]?R.C.ok:R.C.drop}"/>`;
+      if(!on[i]) s+=`<text x="${g.x+g.w/2}" y="${g.y+g.h+13}" fill="${R.C.drop}" font-size="9.5" font-family="monospace" text-anchor="middle">정지됨</text>`;
+    });
+    document.getElementById('s1').innerHTML=R.svg(W,H,s,'노드 켜고 끄기');
+    document.querySelectorAll('#tg button').forEach((b,i)=>{ b.classList.toggle('on',on[i]); b.style.background=on[i]?R.C.node:'var(--panel-2)'; b.style.color=on[i]?'#0b0e14':'var(--muted)'; b.textContent=(on[i]?'■ ':'□ ')+NODES[i].label; });
+    const live=NODES.filter((n,i)=>on[i]);
+    const list = live.length? live.map(n=>`<span class="out">  ${n.sub}</span>`).join('\n') : '<span class="out">  (없음 — 모든 노드 정지)</span>';
+    document.getElementById('term1').innerHTML=`<span class="pmt">$</span> <span class="cmd">ros2 node list</span>\n${list}`;
+  }
+  tg.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return; const i=+b.dataset.i; on[i]=!on[i]; render(); });
+  render();
+})();
+
+// ===== STEP 2: node info (endpoints) =====
+(function(){ const W=460,H=210; let sel=1; // detector 기본
+  const INFO={
+    camera:{pubs:['/image (sensor_msgs/Image)'],subs:[],timers:['30Hz 캡처'],srvs:[]},
+    detector:{pubs:['/object (geometry_msgs/Pose)'],subs:['/image (sensor_msgs/Image)'],timers:[],srvs:['/reset_model']},
+    planner:{pubs:['/trajectory (...)'],subs:['/object (geometry_msgs/Pose)'],timers:[],srvs:[]},
+    arm:{pubs:['/joint_states (...)'],subs:['/trajectory (...)'],timers:['100Hz 제어루프'],srvs:[]},
+  };
+  function render(){ let s='';
+    NODES.forEach((n,i)=>{ const g=gridPos(i,W); const on=i===sel; s+=`<g style="cursor:pointer">`+R.box(g.x,g.y,g.w,g.h,n.label,{color:on?R.C.topic:R.C.node,sub:n.sub,lw:on?2.6:2})+`<rect class="nhit" data-i="${i}" x="${g.x}" y="${g.y}" width="${g.w}" height="${g.h}" fill="transparent"/></g>`;
+    });
+    document.getElementById('s2').innerHTML=R.svg(W,H,s,'노드 단자 보기');
+    const n=NODES[sel], inf=INFO[n.id];
+    const row=(t,arr,c)=>arr.length?arr.map(x=>`<span style="color:${c}">  ${t} ${x}</span>`).join('\n'):`<span class="out">  ${t} (없음)</span>`;
+    document.getElementById('term2').innerHTML=`<span class="pmt">$</span> <span class="cmd">ros2 node info ${n.sub}</span>\n`+
+      `<span class="out">Publishers:</span>\n${row('→',inf.pubs,'var(--hot)')}\n`+
+      `<span class="out">Subscribers:</span>\n${row('←',inf.subs,'var(--good)')}\n`+
+      `<span class="out">Service Servers:</span>\n${row('⚙',inf.srvs,'var(--v)')}\n`+
+      `<span class="out">Timers:</span>\n${row('⏱',inf.timers,'var(--muted)')}`;
+  }
+  document.getElementById('s2').addEventListener('click',e=>{ const h=e.target.closest('.nhit'); if(!h)return; sel=+h.dataset.i; render(); });
+  render();
+})();
+
+// ===== STEP 3: takeaways =====
+(function(){ const W=460,H=150;
+  const pts=[['이름을 가진다','/camera, /detector …'],['한 가지 일','카메라·인식·계획·구동'],['따로 켜고 끈다','독립 프로세스'],['단자로 연결','발행·구독·서비스']];
+  let s=`<text x="${W/2}" y="26" fill="var(--good)" font-size="13" font-family="monospace" text-anchor="middle" font-weight="700">노드 = 작고, 이름있고, 독립적인 일꾼</text>`;
+  pts.forEach((p,i)=>{ const x=24+(i%2)*(W/2-8), y=44+Math.floor(i/2)*48; s+=`<rect x="${x}" y="${y}" width="${W/2-40}" height="40" rx="9" fill="var(--panel)" stroke="var(--good)" stroke-width="1.2"/><text x="${x+14}" y="${y+18}" fill="var(--ink)" font-size="12.5" font-family="monospace" font-weight="700">${p[0]}</text><text x="${x+14}" y="${y+33}" fill="var(--muted)" font-size="10" font-family="monospace">${p[1]}</text>`; });
+  document.getElementById('s3').innerHTML=R.svg(W,H,s,'정리');
+  document.getElementById('lab3').innerHTML=`다음 질문은 자연스럽게 — 이 독립된 노드들이 <b>어떻게 메시지를 주고받나</b>? → 토픽.`;
+})();
+</script>
+</body>
+</html>

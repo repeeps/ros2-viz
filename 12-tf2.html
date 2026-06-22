@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>12 · tf2 — ROS2, 눈으로 보기</title>
+<link rel="stylesheet" href="shared/theme.css">
+<link rel="icon" type="image/svg+xml" href="shared/favicon.svg">
+<style>
+  .scene{cursor:default;}
+  .big{font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--ink); margin:8px 2px 0;}
+  .ctl{display:flex; align-items:center; gap:10px; margin:10px 0; flex-wrap:wrap;}
+  .ctl label{font-size:13px; color:var(--muted);}
+  svg{display:block; width:100%; background:var(--panel-2); border:1px solid var(--line); border-radius:12px;}
+  .toggles{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+  .toggles button{font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:8px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);cursor:pointer}
+  .toggles button.on{color:#0b0e14;font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topnav" id="topnav"></div>
+
+  <header>
+    <div class="tag" style="color:var(--good)">PART E · 공간·시스템 — CH 12</div>
+    <h1>tf2 — 좌표를 언제 기준으로</h1>
+    <p class="intro">로봇엔 좌표계가 많아요 — 지도(map), 로봇 몸체(base_link), 카메라(camera_link)… 카메라가 "내 앞 30cm에 물체가 있다"고 해도, 팔을 움직이려면 그걸 <b>로봇·지도 기준</b> 좌표로 바꿔야 해요. 이 변환들을 트리로 관리하는 게 <b>tf2</b>예요. 그런데 결정적 함정이 있어요 — 로봇은 <b>움직이니까</b> 변환이 <b>시간에 따라 변해요</b>. 그래서 tf2는 변환마다 <b>시각(timestamp)</b>을 달고, "그 순간"의 변환을 묻게 해요. 과거는 <b>보간</b>으로 답하지만, <b>미래를 물으면 에러</b>(아직 모르니까), 너무 오래된 것도 에러죠. "언제 기준의 좌표인가"가 tf2의 전부예요.</p>
+  </header>
+
+  <nav class="stepper" id="stepper">
+    <button data-s="0" class="active">00 · 좌표 트리</button>
+    <button data-s="1">01 · 시간을 탄다</button>
+    <button data-s="2">02 · 어느 시각으로 물을까</button>
+    <button data-s="3">03 · 정리</button>
+  </nav>
+
+  <!-- STEP 0 -->
+  <section class="panel show" data-panel="0">
+    <span class="kicker" style="color:var(--hot)">Step 00 — The Transform Tree</span>
+    <h2>좌표 트리 — 카메라가 본 점을 지도 좌표로</h2>
+    <p class="lead">왼쪽은 좌표계 트리예요: <b>map → base_link(로봇) → camera_link(카메라) → 물체</b>. 카메라가 본 물체를 <b>지도(map) 기준</b>으로 알려면 이 사슬을 따라 변환을 <b>곱해</b> 올라가면 돼요. 노드를 <b>눌러</b> 그 좌표계에서 물체가 어디로 보이는지 확인하세요. tf2가 이 사슬 계산을 대신 해줘요.</p>
+    <div class="toggles" id="frames"></div>
+    <div class="scene" id="s0"></div>
+    <p class="big" id="lab0"></p>
+    <p class="note" style="margin-top:6px">→ "이 좌표계에서 저 좌표계로"의 변환만 트리에 등록돼 있으면, 둘 사이 어떤 경로든 tf2가 알아서 이어줘요.</p>
+  </section>
+
+  <!-- STEP 1 -->
+  <section class="panel" data-panel="1">
+    <span class="kicker" style="color:var(--q)">Step 01 — It Rides on Time</span>
+    <h2>변환은 시간을 탄다 — 과거는 보간, 미래는 에러</h2>
+    <p class="lead">로봇이 움직이면 map→base_link 변환이 <b>시시각각 변해요</b>. tf2는 변환을 <b>시각이 찍힌 샘플</b>로 버퍼에 모아둬요(점들). 조회 시각을 슬라이더로 옮겨보세요. 샘플 <b>사이</b>를 물으면 <b>보간</b>해 답하고(초록), <b>가장 최근 샘플보다 미래</b>를 물으면 <b>ExtrapolationException</b>(아직 모르니까), 너무 <b>오래된 과거</b>도 버퍼에서 사라져 실패해요.</p>
+    <div class="ctl"><label>조회 시각 <span id="qtL" style="color:var(--hot)">now</span></label><input type="range" id="qt" min="0" max="100" step="1" value="60" style="flex:1"></div>
+    <div class="scene" id="s1"></div>
+    <p class="big" id="lab1"></p>
+    <p class="note" style="margin-top:6px">→ "미래를 물으면 에러"는 버그가 아니에요 — tf2는 <b>추측하지 않아요</b>. 아직 안 온 변환을 지어내느니 정직하게 실패하죠.</p>
+  </section>
+
+  <!-- STEP 2 -->
+  <section class="panel" data-panel="2">
+    <span class="kicker" style="color:var(--v)">Step 02 — Which Timestamp?</span>
+    <h2>어느 시각으로 물을까 — "지금" vs "데이터가 찍힌 때"</h2>
+    <p class="lead">카메라가 0.3초 전에 찍은 영상에서 물체를 찾았어요. 이 물체를 지도 좌표로 바꿀 때, 변환을 <b>"지금"</b> 기준으로 물으면 — 그 사이 로봇이 움직였으니 <b>틀린 위치</b>가 나와요! 올바른 건 <b>"영상이 찍힌 그 시각"</b>의 변환을 묻는 거예요. 모드를 비교해 오차를 보세요. 이게 tf2 실수의 단골이에요.</p>
+    <div class="toggles" id="ts"></div>
+    <div class="scene" id="s2"></div>
+    <p class="big" id="lab2"></p>
+    <p class="note" style="margin-top:6px">→ 규칙: <b>데이터(메시지)의 헤더 timestamp</b>로 tf를 조회하세요. "지금(Time 0)"은 움직이는 로봇에선 위험해요.</p>
+  </section>
+
+  <!-- STEP 3 -->
+  <section class="panel" data-panel="3">
+    <span class="kicker" style="color:var(--good)">Step 03 — Takeaways</span>
+    <h2>정리 — tf2를 한 문장으로</h2>
+    <p class="lead">tf2는 <b>시간이 찍힌 좌표 변환의 트리</b>예요. 두 좌표계 사이를 사슬로 이어 점을 옮겨주고, <b>"언제 기준"</b>인지를 항상 따져요 — 과거는 보간, 미래·너무 오래된 과거는 에러. 핵심 습관은 <b>데이터의 timestamp로 조회하기</b>. 자, 그런데 이 변환들은 여러 노드가 발행하는데, 그 노드들은 마스터도 없이 어떻게 서로를 찾을까요?</p>
+    <div class="scene" id="s3"></div>
+    <p class="big" id="lab3"></p>
+    <p class="note" style="margin-top:14px">→ 다음 → <a href="13-discovery.html" style="color:var(--q);font-weight:700">CH 13 · 디스커버리 — 마스터 없이 만나기</a></p>
+  </section>
+
+  <p class="foot">// 코드 없는 직관 입문 · <a href="index.html">목차</a></p>
+</div>
+
+<script src="shared/lib.js"></script>
+<script src="shared/lib-ros.js"></script>
+<script>
+VZ.mountTopnav('#topnav', '12 · tf2');
+VZ.setupStepper();
+const R=VZ.ROS, fmt=VZ.fmt, clamp=VZ.clamp;
+
+// ===== STEP 0: transform tree =====
+(function(){ const W=460,H=230; let sel=0;
+  const FR=[{id:'map',label:'map',desc:'지도(세계) 기준'},{id:'base',label:'base_link',desc:'로봇 몸체 기준'},{id:'cam',label:'camera_link',desc:'카메라 기준'}];
+  // 물체의 각 프레임 기준 좌표(시각화용 예시값)
+  const OBJ={map:[2.4,1.1],base:[1.2,0.3],cam:[0.0,0.3]};
+  const frames=document.getElementById('frames');
+  frames.innerHTML=FR.map((f,i)=>`<button data-i="${i}">${f.label}</button>`).join('');
+  function render(){ let s='';
+    // 왼쪽: 트리
+    const tx=40; let ty=40;
+    FR.forEach((f,i)=>{ const on=i===sel; s+=`<rect x="${tx}" y="${ty}" width="120" height="34" rx="8" fill="${on?'rgba(110,231,183,.12)':'var(--panel)'}" stroke="${on?R.C.ok:R.C.node}" stroke-width="${on?2.2:1.4}"/><text x="${tx+60}" y="${ty+21}" fill="${on?R.C.ok:'var(--ink)'}" font-size="12" font-family="monospace" text-anchor="middle" font-weight="700">${f.label}</text>`;
+      if(i<FR.length-1){ s+=R.edge(tx+60,ty+34,tx+60,ty+52,{color:'var(--line)',lw:1.6}); s+=`<text x="${tx+72}" y="${ty+48}" fill="var(--faint)" font-size="8.5" font-family="monospace">tf</text>`; } ty+=52; });
+    // 물체 노드
+    s+=`<circle cx="${tx+60}" cy="${ty+6}" r="7" fill="var(--hot)"/><text x="${tx+76}" y="${ty+10}" fill="var(--hot)" font-size="10" font-family="monospace">물체</text>`;
+    // 오른쪽: 선택 좌표계 기준 물체 위치 (2D 축)
+    const ox=300, oy=130, scale=42; const f=FR[sel]; const p=OBJ[f.id];
+    s+=`<line x1="${ox}" y1="${oy}" x2="${ox+90}" y2="${oy}" stroke="${R.C.node}" stroke-width="1.5"/><text x="${ox+96}" y="${oy+4}" fill="${R.C.node}" font-size="10" font-family="monospace">x</text>`;
+    s+=`<line x1="${ox}" y1="${oy}" x2="${ox}" y2="${oy-90}" stroke="${R.C.node}" stroke-width="1.5"/><text x="${ox-2}" y="${oy-96}" fill="${R.C.node}" font-size="10" font-family="monospace" text-anchor="middle">y</text>`;
+    s+=`<text x="${ox-6}" y="${oy+16}" fill="var(--muted)" font-size="10" font-family="monospace" text-anchor="end">${f.label}</text>`;
+    const px=ox+p[0]*scale, py=oy-p[1]*scale;
+    s+=R.edge(ox,oy,px,py,{color:'var(--hot)',lw:1.4,dash:'4 3'});
+    s+=`<circle cx="${px}" cy="${py}" r="7" fill="var(--hot)"/>`;
+    s+=`<text x="${px+10}" y="${py-6}" fill="var(--hot)" font-size="10" font-family="monospace">(${p[0].toFixed(1)}, ${p[1].toFixed(1)})</text>`;
+    document.getElementById('s0').innerHTML=R.svg(W,H,s,'좌표 트리와 물체 위치');
+    document.querySelectorAll('#frames button').forEach((b,i)=>{ const on=i===sel; b.classList.toggle('on',on); b.style.background=on?R.C.ok:'var(--panel-2)'; b.style.color=on?'#0b0e14':'var(--muted)'; });
+    document.getElementById('lab0').innerHTML=`<b style="color:var(--good)">${f.label}</b> 기준에서 물체는 (${OBJ[f.id][0].toFixed(1)}, ${OBJ[f.id][1].toFixed(1)}) — ${f.desc}. 같은 물체, 좌표계마다 값이 달라요.`;
+  }
+  frames.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return; sel=+b.dataset.i; render(); });
+  render();
+})();
+
+// ===== STEP 1: time buffer interpolation/extrapolation =====
+(function(){ const W=460,H=210; let qt=0.6;
+  const qtEl=document.getElementById('qt'), qtL=document.getElementById('qtL');
+  // 버퍼 샘플 시각(0~1 정규화). 최신=0.7. 0.7 이후=미래, 0.15 이전=너무 오래됨
+  const samples=[0.2,0.35,0.5,0.65]; const latest=0.65, oldest=0.2;
+  qtEl.oninput=()=>{ qt=+qtEl.value/100; qtL.textContent= qt>latest?'미래!':(qt<oldest?'너무 과거':'t='+qt.toFixed(2)); render(); };
+  function robotX(t){ return 60 + t*320; } // 로봇 위치(변환)는 t에 선형
+  function render(){ let s=''; const trackY=70;
+    // 시간축 + 샘플
+    const ax0=40, ax1=W-30, axy=150;
+    s+=`<line x1="${ax0}" y1="${axy}" x2="${ax1}" y2="${axy}" stroke="var(--line)" stroke-width="2"/>`;
+    s+=`<text x="${ax0}" y="${axy+20}" fill="var(--faint)" font-size="9" font-family="monospace">과거</text><text x="${ax1}" y="${axy+20}" fill="var(--faint)" font-size="9" font-family="monospace" text-anchor="end">미래</text>`;
+    const tx=t=>ax0+t*(ax1-ax0);
+    // 미래 영역 음영
+    s+=`<rect x="${tx(latest)}" y="${axy-40}" width="${ax1-tx(latest)}" height="40" fill="rgba(251,113,133,.08)"/><text x="${(tx(latest)+ax1)/2}" y="${axy-46}" fill="${R.C.drop}" font-size="9" font-family="monospace" text-anchor="middle">미래 (모름)</text>`;
+    samples.forEach(t=>{ s+=`<circle cx="${tx(t)}" cy="${axy}" r="5" fill="${R.C.node}"/>`; });
+    s+=`<text x="${tx(samples[0])}" y="${axy-12}" fill="var(--muted)" font-size="8.5" font-family="monospace" text-anchor="middle">버퍼 샘플</text>`;
+    // 조회 시각 마커
+    const valid = qt>=oldest && qt<=latest;
+    s+=`<line x1="${tx(qt)}" y1="${axy-44}" x2="${tx(qt)}" y2="${axy+8}" stroke="${valid?R.C.ok:R.C.drop}" stroke-width="2"/>`;
+    s+=`<text x="${tx(qt)}" y="${axy+34}" fill="${valid?R.C.ok:R.C.drop}" font-size="10" font-family="monospace" text-anchor="middle" font-weight="700">조회</text>`;
+    // 결과: 로봇(변환) 위치
+    s+=`<text x="${W/2}" y="34" fill="var(--muted)" font-size="11" font-family="monospace" text-anchor="middle">map→base_link 변환 (로봇 위치)</text>`;
+    if(valid){ const rx=robotX(qt); s+=`<rect x="${rx-14}" y="${trackY-12}" width="28" height="22" rx="4" fill="${R.C.ok}"/><circle cx="${rx-7}" cy="${trackY+12}" r="4" fill="#0b0e14" stroke="var(--ink)"/><circle cx="${rx+7}" cy="${trackY+12}" r="4" fill="#0b0e14" stroke="var(--ink)"/>`;
+      s+=`<text x="${rx}" y="${trackY-18}" fill="${R.C.ok}" font-size="9" font-family="monospace" text-anchor="middle">보간된 위치</text>`;
+    } else { s+=`<text x="${W/2}" y="${trackY}" fill="${R.C.drop}" font-size="13" font-family="monospace" text-anchor="middle" font-weight="700">⛔ ${qt>latest?'ExtrapolationException':'버퍼에 없음 (너무 오래됨)'}</text>`; }
+    document.getElementById('s1').innerHTML=R.svg(W,H,s,'tf 버퍼 보간/외삽');
+    document.getElementById('lab1').innerHTML = qt>latest?'<b style="color:var(--drop)">미래 조회</b> — 아직 안 온 변환이라 tf2는 <b>추측 대신 에러</b>를 내요.': qt<oldest?'<b style="color:var(--drop)">너무 오래된 과거</b> — 버퍼에서 사라져 조회 불가.':'<b style="color:var(--good)">유효</b> — 샘플 사이를 <b>보간</b>해 그 시각의 변환을 답해요.';
+  }
+  render();
+})();
+
+// ===== STEP 2: which timestamp =====
+(function(){ let mode=1, cancel=null; // 0 데이터시각(정답), 1 지금(오답)
+  const MODES=[{k:'데이터 timestamp (정답)',c:R.C.ok},{k:'"지금" 기준 (오답)',c:R.C.drop}];
+  const ts=document.getElementById('ts');
+  ts.innerHTML=MODES.map((m,i)=>`<button data-i="${i}">${m.k}</button>`).join('');
+  // 로봇은 이동 중. 영상은 0.3초 전(t=captured)에 찍힘. 지금은 t=now.
+  function render(p){ const W=460,H=200; let s='';
+    const groundY=150; const capX=120, nowX=260; // 로봇이 cap→now로 이동
+    const objWorldX=360; // 물체의 실제 세계 위치(고정)
+    // 지면
+    s+=`<line x1="30" y1="${groundY}" x2="${W-20}" y2="${groundY}" stroke="var(--line)" stroke-width="1.5"/>`;
+    // 물체 (고정, 세계좌표)
+    s+=`<circle cx="${objWorldX}" cy="${groundY-18}" r="9" fill="var(--hot)"/><text x="${objWorldX}" y="${groundY-32}" fill="var(--hot)" font-size="9.5" font-family="monospace" text-anchor="middle">실제 물체</text>`;
+    // 로봇 위치 두 개: 영상 찍을 때(cap), 지금(now)
+    function robot(x,c,lab,dim){ let r=`<rect x="${x-15}" y="${groundY-30}" width="30" height="22" rx="4" fill="${c}" opacity="${dim?0.4:1}"/><circle cx="${x-7}" cy="${groundY-6}" r="4" fill="#0b0e14" stroke="var(--ink)"/><circle cx="${x+7}" cy="${groundY-6}" r="4" fill="#0b0e14" stroke="var(--ink)"/>`;
+      r+=`<text x="${x}" y="${groundY-36}" fill="${c}" font-size="9" font-family="monospace" text-anchor="middle">${lab}</text>`; return r; }
+    s+=robot(capX,R.C.node,'영상 찍은 때',mode!==0);
+    s+=robot(nowX,'var(--v)','지금',mode!==1);
+    // 카메라가 본 물체의 상대각/거리는 영상 찍을 때 기준. 그걸 어느 로봇위치 변환에 적용?
+    const baseX = mode===0?capX:nowX; // 정답: cap, 오답: now
+    // 카메라가 본 물체의 상대 오프셋(영상 찍을 때 cap 기준 실제 오프셋)
+    const relOff = objWorldX - capX;
+    const estX = baseX + relOff; // 추정한 물체 세계 위치
+    s+=R.edge(baseX,groundY-19, estX,groundY-19,{color:mode===0?R.C.ok:R.C.drop,lw:1.4,dash:'4 3'});
+    s+=`<circle cx="${estX}" cy="${groundY-19}" r="7" fill="none" stroke="${mode===0?R.C.ok:R.C.drop}" stroke-width="2"/>`;
+    s+=`<text x="${estX}" y="${groundY+16}" fill="${mode===0?R.C.ok:R.C.drop}" font-size="9" font-family="monospace" text-anchor="middle">추정 위치</text>`;
+    const err=Math.abs(estX-objWorldX);
+    s+=`<text x="${W/2}" y="30" fill="${err<5?R.C.ok:R.C.drop}" font-size="12" font-family="monospace" text-anchor="middle" font-weight="700">${err<5?'✓ 실제 물체와 일치':'✗ '+(err/40).toFixed(1)+'m 어긋남'}</text>`;
+    document.getElementById('s2').innerHTML=R.svg(W,H,s,MODES[mode].k);
+    document.querySelectorAll('#ts button').forEach((b,i)=>{ const on=i===mode; b.classList.toggle('on',on); b.style.background=on?MODES[i].c:'var(--panel-2)'; b.style.color=on?'#0b0e14':'var(--muted)'; });
+    document.getElementById('lab2').innerHTML = mode===0?'<b style="color:var(--good)">영상이 찍힌 시각</b>의 변환을 쓰니 추정이 실제와 <b>일치</b>해요.':'<b style="color:var(--drop)">"지금" 변환</b>을 쓰면 그새 로봇이 움직여 추정이 <b>어긋나요</b>.';
+  }
+  ts.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return; mode=+b.dataset.i; render(); });
+  render();
+})();
+
+// ===== STEP 3: takeaways =====
+(function(){ const W=460,H=150;
+  let s=`<text x="${W/2}" y="24" fill="var(--good)" font-size="13" font-family="monospace" text-anchor="middle" font-weight="700">tf2 = 시간이 찍힌 좌표 변환 트리</text>`;
+  const rows=[['트리','좌표계 사슬을 곱해 점을 옮김',R.C.node],['시간','과거=보간, 미래=에러','var(--hot)'],['습관','데이터 timestamp로 조회',R.C.ok]];
+  rows.forEach((r,i)=>{ const y=38+i*36; s+=`<rect x="20" y="${y}" width="${W-40}" height="30" rx="8" fill="var(--panel)" stroke="${r[2]}" stroke-width="1.1"/><text x="34" y="${y+20}" fill="${r[2]}" font-size="12" font-family="monospace" font-weight="700">${r[0]}</text><text x="120" y="${y+20}" fill="var(--ink)" font-size="11" font-family="monospace">${r[1]}</text>`; });
+  document.getElementById('s3').innerHTML=R.svg(W,H,s,'정리');
+  document.getElementById('lab3').innerHTML=`변환을 발행하는 노드들 — 마스터도 없이 어떻게 서로 찾을까요? → <b>디스커버리</b>.`;
+})();
+</script>
+</body>
+</html>

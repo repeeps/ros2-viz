@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>11 · 멀티 스레드와 콜백 그룹 — ROS2, 눈으로 보기</title>
+<link rel="stylesheet" href="shared/theme.css">
+<link rel="icon" type="image/svg+xml" href="shared/favicon.svg">
+<style>
+  .scene{cursor:default;}
+  .big{font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--ink); margin:8px 2px 0;}
+  .ctl{display:flex; align-items:center; gap:10px; margin:10px 0; flex-wrap:wrap;}
+  .ctl label{font-size:13px; color:var(--muted);}
+  svg{display:block; width:100%; background:var(--panel-2); border:1px solid var(--line); border-radius:12px;}
+  .toggles{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+  .toggles button{font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:8px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);cursor:pointer}
+  .toggles button.on{color:#0b0e14;font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topnav" id="topnav"></div>
+
+  <header>
+    <div class="tag" style="color:var(--hot)">PART D · Executor — CH 11</div>
+    <h1>멀티 스레드와 콜백 그룹</h1>
+    <p class="intro">일꾼이 하나라 답답했다면, <b>MultiThreadedExecutor</b>로 일꾼(스레드)을 여럿 둘 수 있어요. 콜백이 <b>동시에</b> 돌아 긴 콜백이 다른 걸 막지 않고, CH 10의 데드락도 풀려요. 하지만 공짜는 아니에요 — 동시에 돌면 <b>같은 데이터를 두 콜백이 동시에 건드리는</b> 경쟁 상태(race condition)가 생길 수 있어요. 그래서 ROS2는 <b>콜백 그룹</b>으로 "어디까지 동시에 돌아도 되는지"를 정하게 해요: <b>MutuallyExclusive</b>(같은 그룹은 겹치지 않음)와 <b>Reentrant</b>(겹쳐도 됨). 동시성의 득과 실을 직접 보며 균형을 잡아요.</p>
+  </header>
+
+  <nav class="stepper" id="stepper">
+    <button data-s="0" class="active">00 · 여러 줄로 동시에</button>
+    <button data-s="1">01 · 콜백 그룹</button>
+    <button data-s="2">02 · 동시성의 대가</button>
+    <button data-s="3">03 · 정리</button>
+  </nav>
+
+  <!-- STEP 0 -->
+  <section class="panel show" data-panel="0">
+    <span class="kicker" style="color:var(--hot)">Step 00 — Several Lanes</span>
+    <h2>일꾼을 여럿 — 콜백이 동시에 돈다</h2>
+    <p class="lead">스레드 수를 바꿔보세요. 단일 스레드(1)에선 CH 10처럼 한 줄로 줄 서지만, <b>여러 스레드</b>면 콜백이 <b>여러 줄에서 동시에</b> 돌아 전체가 <b>빨리 끝나요</b>. 긴 콜백 B가 돌아도 다른 스레드가 A·C를 처리하니 안 막히고요.</p>
+    <div class="ctl"><label>스레드 수 <span id="nvL" style="color:var(--hot)">3</span></label><input type="range" id="nv" min="1" max="3" step="1" value="3" style="flex:1"><button class="btn play" id="go0">▶ 실행</button></div>
+    <div class="scene" id="s0"></div>
+    <p class="big" id="lab0"></p>
+    <p class="note" style="margin-top:6px">→ 같은 콜백 묶음인데 스레드가 많을수록 <b>총 시간(makespan)</b>이 짧아져요. 단, 무한정 빨라지진 않아요(콜백 수·의존성 한계). <b>일꾼이 둘 이상이면 <a href="10-single-thread.html" style="color:var(--q)">CH 10</a>의 데드락도 풀려요</b> — 응답을 처리할 다른 일꾼이 있으니까요.</p>
+  </section>
+
+  <!-- STEP 1 -->
+  <section class="panel" data-panel="1">
+    <span class="kicker" style="color:var(--q)">Step 01 — Callback Groups</span>
+    <h2>콜백 그룹 — 어디까지 겹쳐도 되나</h2>
+    <p class="lead"><b>여기서는 스레드가 2개 이상(MultiThreadedExecutor)</b>이라고 가정해요 — 단일 스레드면 그룹을 어떻게 나눠도 어차피 직렬이니까요. 그 전제에서 <b>콜백 그룹</b>이 동시 실행을 제어해요. 두 콜백 A·B의 그룹 배치를 골라보세요. <b>같은 MutuallyExclusive 그룹</b>이면 스레드가 많아도 <b>겹치지 않고</b> 순서대로. <b>다른 그룹</b>이거나 <b>Reentrant</b>면 <b>동시에</b> 돌아요. 같은 자원을 만지는 콜백을 <b>같은 MutEx 그룹</b>으로 묶으면 직렬화로 보호돼요.</p>
+    <div class="toggles" id="grp"></div>
+    <div class="scene" id="s1"></div>
+    <p class="big" id="lab1"></p>
+    <p class="note" style="margin-top:6px">→ 기본 그룹은 <b>MutuallyExclusive</b>예요. 아무것도 지정 안 하면 한 노드의 콜백들은 사실상 직렬로 돌죠(단일 스레드와 비슷).</p>
+  </section>
+
+  <!-- STEP 2 -->
+  <section class="panel" data-panel="2">
+    <span class="kicker" style="color:var(--v)">Step 02 — The Cost of Concurrency</span>
+    <h2>동시성의 대가 — 경쟁 상태</h2>
+    <p class="lead">동시에 돌면 빠르지만, 두 콜백이 <b>같은 변수</b>를 동시에 읽고 쓰면 값이 <b>망가져요</b>(경쟁 상태). 모드를 비교하세요. 두 콜백이 <b>동시에 도는 경우</b>(다른 그룹·Reentrant)엔 카운터가 엉뚱한 값이 되고, <b>같은 MutEx 그룹으로 묶어 직렬화</b>하면 겹치지 않아 정확해요. 단 분명히 — <b>콜백 그룹은 스케줄 규칙이지 락이 아니에요</b>: "같은 그룹에 묶었을 때"만 직렬화로 보호되고, 그룹이 다르면 MutEx여도 여전히 동시예요.</p>
+    <div class="toggles" id="race"></div>
+    <div class="ctl"><button class="btn play" id="go2">▶ 1000번 증가</button></div>
+    <div class="scene" id="s2"></div>
+    <p class="big" id="lab2"></p>
+    <p class="note" style="margin-top:6px">→ 진짜 보호가 필요하면 <b>같은 자원의 콜백을 한 MutEx 그룹</b>에 넣거나 직접 <b>락(mutex)</b>으로 감싸세요. "빠르니까 무조건 멀티 스레드"는 답이 아니에요.</p>
+  </section>
+
+  <!-- STEP 3 -->
+  <section class="panel" data-panel="3">
+    <span class="kicker" style="color:var(--good)">Step 03 — Takeaways</span>
+    <h2>정리 — PART D를 닫으며</h2>
+    <p class="lead">기본은 <b>단일 스레드</b>(예측 가능·안전). 동시 처리나 콜백 내 대기가 필요하면 <b>멀티 스레드</b>로 일꾼을 늘리되, <b>콜백 그룹</b>으로 겹침을 제어해요 — 같은 자원은 MutEx로 보호, 독립적인 건 Reentrant/다른 그룹으로 동시에. 핵심은 "콜백이 <b>언제·몇 개씩</b> 도는가"를 내가 정한다는 거예요. 여기까지가 ROS2 타이밍의 뼈대예요. 다음 PART는 공간 — 좌표를 <b>언제 기준으로</b> 맞추는가(tf2)로 넘어가요.</p>
+    <div class="scene" id="s3"></div>
+    <p class="big" id="lab3"></p>
+    <p class="note" style="margin-top:14px">→ 다음 → <a href="12-tf2.html" style="color:var(--q);font-weight:700">CH 12 · tf2 — 좌표를 언제 기준으로</a></p>
+  </section>
+
+  <p class="foot">// 코드 없는 직관 입문 · <a href="index.html">목차</a></p>
+</div>
+
+<script src="shared/lib.js"></script>
+<script src="shared/lib-ros.js"></script>
+<script>
+VZ.mountTopnav('#topnav', '11 · 멀티 스레드');
+VZ.setupStepper();
+const R=VZ.ROS, fmt=VZ.fmt, clamp=VZ.clamp;
+const CQ=R.C.q||'var(--q)';
+
+// ===== STEP 0: multi-lane scheduling =====
+(function(){ let cancel=null, nthread=3;
+  const nv=document.getElementById('nv'), nvL=document.getElementById('nvL');
+  nv.oninput=()=>{ nthread=+nv.value; nvL.textContent=nthread; render(lastP); };
+  // 5 콜백을 nthread 레인에 그리디 배정
+  const CBS=[{label:'A',dur:0.4,c:CQ},{label:'B (긴)',dur:0.9,c:'var(--v)'},{label:'C',dur:0.4,c:R.C.ok},{label:'D',dur:0.35,c:R.C.pink||'var(--pink)'},{label:'E',dur:0.45,c:R.C.msg}];
+  function schedule(n){ const laneEnd=Array(n).fill(0); const tasks=[];
+    CBS.forEach(cb=>{ let li=0; for(let i=1;i<n;i++) if(laneEnd[i]<laneEnd[li]) li=i; tasks.push({lane:'스레드'+(li+1),t0:laneEnd[li],dur:cb.dur,label:cb.label,color:cb.c}); laneEnd[li]+=cb.dur; });
+    return {tasks, makespan:Math.max(...laneEnd)}; }
+  let lastP=0;
+  function render(p){ lastP=p; const {tasks,makespan}=schedule(nthread); const tmax=Math.max(2.6,makespan+0.2); const now=p*tmax;
+    const lanes=Array.from({length:nthread},(_,i)=>'스레드'+(i+1));
+    let s=R.gantt(460,40+nthread*34,lanes,tasks.filter(t=>t.t0<now+0.001).map(t=>({...t,dur:Math.min(t.dur,now-t.t0)})),tmax,{playhead:now,tick:1});
+    const H=40+nthread*34;
+    document.getElementById('s0').innerHTML=R.svg(460,H,s,'멀티 스레드 스케줄');
+    document.getElementById('lab0').innerHTML = p<0.05?`스레드 ${nthread}개로 ▶ 실행하세요.`:`스레드 ${nthread}개 → 5개 콜백을 ${makespan.toFixed(2)}초에 끝냄${nthread===1?' (한 줄, 직렬)':' (동시 실행으로 단축)'}.`;
+  }
+  document.getElementById('go0').onclick=()=>{ if(cancel)cancel(); cancel=VZ.LA.tween(p=>render(p),2800,()=>render(1)); };
+  render(0);
+})();
+
+// ===== STEP 1: callback groups =====
+(function(){ let mode=0, cancel=null; // 0 same MutEx, 1 different groups, 2 same Reentrant
+  const MODES=[{k:'같은 MutEx 그룹',c:R.C.ok},{k:'다른 그룹',c:CQ},{k:'같은 Reentrant 그룹',c:'var(--v)'}];
+  const grp=document.getElementById('grp');
+  grp.innerHTML=MODES.map((m,i)=>`<button data-i="${i}">${m.k}</button>`).join('');
+  function render(p){ const W=460,H=150; const tmax=2.2;
+    // A(0.6), B(0.6). mode 0: 직렬(0,0.6,1.2). mode 1/2: 동시(둘다 0~0.6)
+    let tasks;
+    if(mode===0){ tasks=[{lane:'스레드1',t0:0.1,dur:0.6,label:'A',color:CQ},{lane:'스레드2',t0:0.7,dur:0.6,label:'B',color:'var(--v)'}]; }
+    else { tasks=[{lane:'스레드1',t0:0.1,dur:0.6,label:'A',color:CQ},{lane:'스레드2',t0:0.1,dur:0.6,label:'B',color:'var(--v)'}]; }
+    const now=p*tmax;
+    let s=R.gantt(W,H,['스레드1','스레드2'],tasks.filter(t=>t.t0<now+0.001).map(t=>({...t,dur:Math.min(t.dur,now-t.t0)})),tmax,{playhead:now,tick:0.5});
+    document.getElementById('s1').innerHTML=R.svg(W,H,s,MODES[mode].k);
+    document.querySelectorAll('#grp button').forEach((b,i)=>{ const on=i===mode; b.classList.toggle('on',on); b.style.background=on?MODES[i].c:'var(--panel-2)'; b.style.color=on?'#0b0e14':'var(--muted)'; });
+    document.getElementById('lab1').innerHTML = mode===0?'<b style="color:var(--good)">같은 MutEx 그룹</b>: 스레드가 둘이어도 A·B가 <b>겹치지 않고</b> 순서대로 — 안전.': mode===1?'<b style="color:'+CQ+'">다른 그룹</b>: A·B가 <b>동시에</b> 돌아요 — 서로 독립이면 OK.':'<b style="color:var(--v)">같은 Reentrant 그룹</b>: 같은 그룹이라도 <b>동시 실행 허용</b> — 빠르지만 공유 자원 주의.';
+  }
+  grp.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return; mode=+b.dataset.i; if(cancel)cancel(); cancel=VZ.LA.tween(p=>render(p),1800,()=>render(1)); });
+  function loop(){ cancel=VZ.LA.tween(p=>render(p),1800,()=>render(1)); } loop();
+})();
+
+// ===== STEP 2: race condition =====
+(function(){ let mode=1, cancel=null, lossFactor=0.68; // 0 MutEx(같은그룹→직렬), 1 동시(보호없음)
+  const MODES=[{k:'같은 MutEx 그룹 (직렬화)',c:R.C.ok},{k:'동시 실행 (보호 없음)',c:R.C.dead}];
+  const race=document.getElementById('race');
+  race.innerHTML=MODES.map((m,i)=>`<button data-i="${i}">${m.k}</button>`).join('');
+  function render(p){ const W=460,H=170; const target=1000;
+    // 보호: 정확히 target. 비보호: 일부 증가가 덮어써져 손실 (실행마다 손실량 다름 = 비결정적)
+    const protect = mode===0;
+    const cur = Math.round(target*p*(protect?1:lossFactor));
+    let s='';
+    s+=`<text x="${W/2}" y="40" fill="var(--muted)" font-size="11" font-family="monospace" text-anchor="middle">두 콜백이 같은 카운터를 1000번 증가</text>`;
+    s+=`<text x="${W/2}" y="84" fill="${protect?R.C.ok:R.C.dead}" font-size="32" font-family="monospace" text-anchor="middle" font-weight="700">${cur}</text>`;
+    s+=`<text x="${W/2}" y="106" fill="var(--muted)" font-size="11" font-family="monospace" text-anchor="middle">기대값: ${Math.round(target*p)}</text>`;
+    s+=R.progress(80,124,W-160,p,{color:protect?R.C.ok:R.C.dead});
+    if(p>=0.999){ s+=`<text x="${W/2}" y="158" fill="${protect?R.C.ok:R.C.dead}" font-size="12" font-family="monospace" text-anchor="middle" font-weight="700">${protect?'✓ 정확히 1000 — 보호 성공':'✗ '+cur+' (≈'+(target-cur)+' 손실) — 경쟁 상태!'}</text>`; }
+    document.getElementById('s2').innerHTML=R.svg(W,H,s,MODES[mode].k);
+    document.querySelectorAll('#race button').forEach((b,i)=>{ const on=i===mode; b.classList.toggle('on',on); b.style.background=on?MODES[i].c:'var(--panel-2)'; b.style.color=on?'#0b0e14':'var(--muted)'; });
+    document.getElementById('lab2').innerHTML = protect?'<b style="color:var(--good)">같은 MutEx 그룹</b>: 직렬화돼 한 번에 하나만 증가 → 정확히 1000.':'<b style="color:var(--dead)">동시 실행</b>: 같이 읽고 써서 일부 증가가 <b>덮어써져</b> 사라져요 — 손실량은 <b>실행마다 달라요</b>(비결정적).';
+  }
+  race.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return; mode=+b.dataset.i; render(0); });
+  document.getElementById('go2').onclick=()=>{ if(cancel)cancel(); lossFactor=0.58+Math.random()*0.2; cancel=VZ.LA.tween(p=>render(p),2200,()=>render(1)); };
+  render(0);
+})();
+
+// ===== STEP 3: takeaways =====
+(function(){ const W=460,H=150;
+  let s=`<text x="${W/2}" y="24" fill="var(--good)" font-size="13" font-family="monospace" text-anchor="middle" font-weight="700">동시성 = 속도 ↔ 위험의 균형</text>`;
+  const rows=[['기본','단일 스레드 (예측·안전)',R.C.ok],['필요 시','멀티 스레드로 일꾼 늘리기',CQ],['MutEx 그룹','같은 자원 보호 (안 겹침)','var(--v)'],['Reentrant','동시 허용 (빠름·주의)','var(--hot)']];
+  rows.forEach((r,i)=>{ const y=38+i*28; s+=`<rect x="20" y="${y}" width="${W-40}" height="24" rx="7" fill="var(--panel)" stroke="${r[2]}" stroke-width="1.1"/><text x="34" y="${y+16}" fill="${r[2]}" font-size="11.5" font-family="monospace" font-weight="700">${r[0]}</text><text x="150" y="${y+16}" fill="var(--ink)" font-size="10.5" font-family="monospace">${r[1]}</text>`; });
+  document.getElementById('s3').innerHTML=R.svg(W,H,s,'정리');
+  document.getElementById('lab3').innerHTML=`타이밍의 뼈대 완성! 이제 <b>공간</b> — 좌표를 언제 기준으로 맞추나(tf2)로.`;
+})();
+</script>
+</body>
+</html>

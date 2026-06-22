@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>0번 · ROS2가 푸는 문제 — ROS2, 눈으로 보기</title>
+<link rel="stylesheet" href="shared/theme.css">
+<link rel="icon" type="image/svg+xml" href="shared/favicon.svg">
+<style>
+  .scene{cursor:default;}
+  .big{font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--ink); margin:8px 2px 0;}
+  .ctl{display:flex; align-items:center; gap:10px; margin:10px 0; flex-wrap:wrap;}
+  .ctl label{font-size:13px; color:var(--muted);}
+  svg{display:block; width:100%; background:var(--panel-2); border:1px solid var(--line); border-radius:12px;}
+  .qbtns{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+  .qbtns button{font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:8px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);cursor:pointer}
+  .qbtns button.on{color:#0b0e14;font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topnav" id="topnav"></div>
+
+  <header>
+    <div class="tag">PART 0 · 입문</div>
+    <h1>ROS2가 푸는 문제</h1>
+    <p class="intro">로봇 하나를 움직이려면 <b>카메라로 보고, 물체를 알아보고, 팔을 계획하고, 모터를 돌리는</b> 일이 동시에 굴러가야 해요. 이걸 <b>하나의 거대한 프로그램</b>으로 만들면 한 군데만 멈춰도 전체가 죽고, 부품을 갈아 끼우기도 어려워요. ROS2는 다른 길을 택해요 — 작은 프로그램(<b>노드</b>) 여러 개가 <b>메시지를 주고받으며</b> 협력하고, 이들을 묶는 <b>중앙 지휘자(마스터)도 없어요</b>. 이 0번에서 "왜 이렇게 만드는가"와 이 트랙에서 <b>무엇을 보게 될지</b>를 한눈에 깔아요. 코딩이 아니라 <b>머릿속 그림(멘탈 모델)</b>을 세우는 게 목표예요.</p>
+  </header>
+
+  <nav class="stepper" id="stepper">
+    <button data-s="0" class="active">00 · 노드들의 합주</button>
+    <button data-s="1">01 · 한 덩어리 vs 여러 노드</button>
+    <button data-s="2">02 · ROS2의 다섯 질문</button>
+    <button data-s="3">03 · 코스맵</button>
+  </nav>
+
+  <!-- STEP 0 -->
+  <section class="panel show" data-panel="0">
+    <span class="kicker" style="color:var(--hot)">Step 00 — An Ensemble of Nodes</span>
+    <h2>마스터 없는 노드들의 합주</h2>
+    <p class="lead">▶를 누르면 세 노드가 메시지로 협력해요 — <b>카메라</b>가 영상을 <b>흘려보내고</b>(토픽), <b>인식</b> 노드가 받아 물체 위치를 내보내고, <b>팔</b> 노드가 그걸 받아 움직여요. 노란 점이 <b>메시지 패킷</b>이에요. 화살표 가운데 <b>알약</b>이 토픽(주제 이름)이고요. 지휘자 없이도 <b>주제별로</b> 메시지가 알아서 흐르는 걸 보세요.</p>
+    <div class="ctl"><button class="btn play" id="go0">▶ 합주 시작</button> <button class="btn" id="rst0">↺ 리셋</button></div>
+    <div class="scene" id="s0"></div>
+    <p class="big" id="lab0"></p>
+    <p class="note" style="margin-top:6px">→ 각 노드는 <b>옆 노드를 직접 호출하지 않아요</b>. 그저 토픽에 올리고/주워가요. 그래서 노드를 떼었다 붙였다 하기 쉬워요.</p>
+  </section>
+
+  <!-- STEP 1 -->
+  <section class="panel" data-panel="1">
+    <span class="kicker" style="color:var(--q)">Step 01 — Monolith vs Nodes</span>
+    <h2>한 덩어리 vs 여러 노드 — 하나가 죽으면?</h2>
+    <p class="lead">두 구성에서 <b>한 부분을 눌러 "고장"</b>내 보세요. <b>한 덩어리</b>는 어디가 터지든 <b>전부</b> 멈춰요. <b>여러 노드</b>는 고장난 노드만 빠지고 나머지는 계속 돌아요 — 그 노드만 다시 켜면 복구되고요. 부품처럼 갈아 끼울 수 있다는 게 노드 구조의 핵심 이점이에요.</p>
+    <div class="ctl"><button class="btn" id="repair1">↺ 모두 복구</button></div>
+    <div class="scene" id="s1"></div>
+    <p class="big" id="lab1"></p>
+    <p class="note" style="margin-top:6px">→ 클릭 = 고장. 노드 구조에선 고장이 <b>격리</b>돼요. 단, 메시지가 안 흐르면 그 줄의 <b>뒤쪽</b>은 일이 끊겨요(빨강 점선).</p>
+  </section>
+
+  <!-- STEP 2 -->
+  <section class="panel" data-panel="2">
+    <span class="kicker" style="color:var(--v)">Step 02 — Five Questions</span>
+    <h2>ROS2를 읽는 다섯 가지 질문</h2>
+    <p class="lead">ROS2 시스템을 만나면 늘 <b>같은 다섯 질문</b>을 던지면 돼요. 각 버튼을 눌러 무슨 뜻인지, 그리고 <b>어느 챕터</b>에서 깊이 보는지 확인하세요. 이 다섯 개가 이 트랙의 뼈대예요.</p>
+    <div class="qbtns" id="qb"></div>
+    <div class="scene" id="s2"></div>
+    <p class="big" id="lab2"></p>
+    <p class="note" style="margin-top:6px">→ <b style="color:var(--hot)">④ 어떻게 받나(QoS)</b>와 <b style="color:var(--hot)">⑤ 언제 도나(executor)</b>가 입문서가 잘 안 짚는 진짜 핵심이에요.</p>
+  </section>
+
+  <!-- STEP 3 -->
+  <section class="panel" data-panel="3">
+    <span class="kicker" style="color:var(--good)">Step 03 — Course Map</span>
+    <h2>코스맵 — 연결에서 실전까지 16챕터</h2>
+    <p class="lead">전체 길이에요. <b>연결</b>(A·B) → <b>고르기</b>(QoS, C) → <b>타이밍</b>(executor, D) → <b>공간·시스템</b>(E) → <b>실전</b>(F). 순서대로 따라오면 ROS2 시스템을 읽고 설계하는 머릿속 그림이 완성돼요.</p>
+    <div class="scene" id="s3"></div>
+    <p class="big" id="lab3"></p>
+    <p class="note" style="margin-top:14px">→ 첫 구간부터. 다음 → <a href="01-nodes.html" style="color:var(--q);font-weight:700">CH 01 · 노드, 일하는 작은 단위</a></p>
+  </section>
+
+  <p class="foot">// 코드 없는 직관 입문 · ROS2의 멘탈 모델을 한눈에 · <a href="index.html">목차</a></p>
+</div>
+
+<script src="shared/lib.js"></script>
+<script src="shared/lib-ros.js"></script>
+<script>
+VZ.mountTopnav('#topnav', '0번 · 입문');
+VZ.setupStepper();
+const R=VZ.ROS, fmt=VZ.fmt, clamp=VZ.clamp;
+
+// ===== STEP 0: three-node ensemble =====
+(function(){ const W=460,H=210; let cancel=null;
+  // 노드 좌표 (박스 좌상단)
+  const NODES=[{x:18,y:84,w:92,h:46,label:'카메라',sub:'camera'},
+               {x:184,y:84,w:92,h:46,label:'인식',sub:'detector'},
+               {x:350,y:84,w:92,h:46,label:'팔',sub:'arm'}];
+  const TOPICS=[{cx:147,cy:107,label:'/image'},{cx:313,cy:107,label:'/object'}];
+  // 패킷이 흐르는 두 구간: node0.right→node1.left, node1.right→node2.left
+  function pktPath(seg){ const a=NODES[seg], b=NODES[seg+1];
+    return [[a.x+a.w, a.y+a.h/2],[b.x, b.y+b.h/2]]; }
+  function render(p){ // p: 0..1 전체 진행
+    let s='';
+    // 엣지 + 토픽 알약
+    NODES.slice(0,2).forEach((n,i)=>{ const [A,B]=pktPath(i); s+=R.edge(A[0],A[1],B[0],B[1],{color:'var(--line)',lw:1.6}); });
+    TOPICS.forEach(t=>s+=R.pill(t.cx,t.cy,t.label,{color:R.C.topic}));
+    // 노드 박스 (진행에 따라 활성)
+    NODES.forEach((n,i)=>{ const active = p>0.02 && ((i===0)|| (i===1&&p>0.33)||(i===2&&p>0.66)); s+=R.box(n.x,n.y,n.w,n.h,n.label,{color:active?R.C.node:'var(--line)',sub:n.sub,dim:!active}); });
+    // 메시지 패킷: 두 구간을 연속으로 흐름. 0..0.5→seg0, 0.5..1→seg1 (겹침 위해 위상차)
+    function emit(seg, ph){ // ph: 0..1 구간 내 위치
+      if(ph<0||ph>1)return; const [A,B]=pktPath(seg); const pt=R.lerp2(A,B,ph); return R.packet(pt[0],pt[1],{color:R.C.msg}); }
+    // 흐름 위상: 두 패킷이 파이프라인을 따라 연속 이동
+    const ph0=(p*2)%1, ph1=((p*2)-0.5+1)%1;
+    if(p>0.02 && p<0.99){ const e0=emit(0, (p*2<1?ph0:1)); if(p*2<1 && e0)s+=e0;
+      // seg0 패킷 (전반)
+      if(p<0.5)s+=emit(0,p/0.5)||'';
+      // seg1 패킷 (후반, 인식이 내보낸 결과)
+      if(p>=0.33 && p<0.92){ const u=clamp((p-0.33)/0.59,0,1); s+=emit(1,u)||''; }
+    }
+    document.getElementById('s0').innerHTML=R.svg(W,H,s,'세 노드가 토픽으로 메시지를 주고받는 그림');
+    let msg;
+    if(p<0.02) msg='멈춤 — ▶로 합주를 시작하세요.';
+    else if(p<0.33) msg='<b style="color:var(--q)">카메라</b>가 <b>/image</b> 토픽으로 영상을 흘려보내요. 받는 쪽이 누군지는 신경 안 써요.';
+    else if(p<0.66) msg='<b style="color:var(--q)">인식</b> 노드가 /image를 받아 물체를 찾고, <b>/object</b>로 위치를 내보내요.';
+    else msg='<b style="color:var(--q)">팔</b> 노드가 /object를 받아 움직여요. 셋이 <b>지휘자 없이</b> 주제별로 협력했죠.';
+    document.getElementById('lab0').innerHTML=msg;
+  }
+  function go(){ if(cancel)cancel(); cancel=VZ.LA.tween(p=>render(p),3600,()=>render(1)); }
+  document.getElementById('go0').onclick=go;
+  document.getElementById('rst0').onclick=()=>{ if(cancel)cancel(); render(0); };
+  render(0);
+})();
+
+// ===== STEP 1: monolith vs nodes, click to break =====
+(function(){ const W=460,H=240;
+  let monoDead=false; const nodeDead=[false,false,false];
+  const NL=['카메라','인식','팔']; // 노드 줄
+  function render(){ let s='';
+    // 왼쪽: 한 덩어리
+    s+=`<text x="115" y="22" fill="var(--muted)" font-size="12" font-family="monospace" text-anchor="middle" font-weight="700">한 덩어리 프로그램</text>`;
+    const mc = monoDead?R.C.drop:'var(--v)';
+    s+=`<rect id="mono" x="30" y="40" width="170" height="150" rx="12" fill="${monoDead?'rgba(100,116,139,.08)':'rgba(167,139,250,.08)'}" stroke="${mc}" stroke-width="2" style="cursor:pointer"/>`;
+    ['카메라','인식','팔','계획','모터'].forEach((t,i)=>{ const cy=64+i*26; s+=`<text x="115" y="${cy}" fill="${monoDead?'var(--faint)':'var(--ink)'}" font-size="11.5" font-family="monospace" text-anchor="middle">${t}</text>`; });
+    if(monoDead) s+=`<text x="115" y="178" fill="${R.C.drop}" font-size="12" font-family="monospace" text-anchor="middle" font-weight="700">✕ 전체 정지</text>`;
+    // 오른쪽: 여러 노드 (세로 파이프라인)
+    s+=`<text x="345" y="22" fill="var(--muted)" font-size="12" font-family="monospace" text-anchor="middle" font-weight="700">여러 노드</text>`;
+    const nx=345, nw=110;
+    NL.forEach((t,i)=>{ const ny=40+i*52; const dead=nodeDead[i];
+      s+=`<rect class="ndbox" data-i="${i}" x="${nx-nw/2}" y="${ny}" width="${nw}" height="38" rx="9" fill="${dead?'rgba(100,116,139,.08)':'var(--panel)'}" stroke="${dead?R.C.drop:R.C.node}" stroke-width="2" style="cursor:pointer"/>`;
+      s+=`<text x="${nx}" y="${ny+18}" fill="${dead?'var(--faint)':'var(--ink)'}" font-size="12" font-family="monospace" text-anchor="middle" font-weight="700">${t}</text>`;
+      s+=`<text x="${nx}" y="${ny+31}" fill="${dead?R.C.drop:'var(--muted)'}" font-size="9" font-family="monospace" text-anchor="middle">${dead?'✕ 정지':'정상'}</text>`;
+      // 연결 화살표 (위→아래). 위 노드가 죽었으면 이 줄로 메시지가 안 옴 → 빨간 점선
+      if(i<2){ const y1=ny+38, y2=ny+52; const broken = nodeDead[i];
+        s+= broken? `<line x1="${nx}" y1="${y1}" x2="${nx}" y2="${y2}" stroke="${R.C.drop}" stroke-width="1.6" stroke-dasharray="3 3"/>`
+                  : R.edge(nx,y1,nx,y2,{color:R.C.topic,lw:1.6}); }
+    });
+    document.getElementById('s1').innerHTML=R.svg(W,H,s,'한 덩어리 대 여러 노드 비교');
+    const liveN=nodeDead.filter(d=>!d).length;
+    document.getElementById('lab1').innerHTML = monoDead
+      ? '<b style="color:var(--drop)">한 덩어리</b>: 한 군데가 터지자 <b>전부</b> 멈췄어요. 재시작도 통째로.'
+      : `<b>여러 노드</b>: ${liveN}/3 살아있음. 고장은 그 노드에만 격리되고, 다시 켜면 복구돼요${nodeDead.some(Boolean)?' — 단 끊긴 줄의 <b style="color:var(--drop)">뒤쪽</b>은 입력이 안 와요.':'.'}`;
+  }
+  document.getElementById('s1').addEventListener('click',e=>{
+    if(e.target.id==='mono'){ monoDead=!monoDead; render(); return; }
+    const nb=e.target.closest('.ndbox'); if(nb){ const i=+nb.dataset.i; nodeDead[i]=!nodeDead[i]; render(); }
+  });
+  document.getElementById('repair1').onclick=()=>{ monoDead=false; nodeDead[0]=nodeDead[1]=nodeDead[2]=false; render(); };
+  render();
+})();
+
+// ===== STEP 2: five questions =====
+(function(){ let sel=0;
+  const Q=[
+    {n:'① 누가 받나?', t:'토픽 (발행/구독)', c:'var(--q)', d:'데이터가 한 방향으로 계속 흐를 때. 발행자는 받는 사람을 몰라도 돼요 — 주제 이름으로 연결돼요.', ch:'CH 01·02'},
+    {n:'② 즉답이 필요?', t:'서비스 (요청/응답)', c:'var(--good)', d:'한 번 묻고 한 번 답 받는 일. "지금 상태 알려줘" 처럼 결과를 그 자리에서 받아야 할 때.', ch:'CH 03'},
+    {n:'③ 오래 걸려?', t:'액션 (목표/피드백/결과)', c:'var(--pink)', d:'몇 초~몇 분 걸리는 일. 진행률을 받아보고 중간에 취소도 할 수 있어요.', ch:'CH 04 (① ② ③ 결정은 CH 05)'},
+    {n:'④ 어떻게 받나?', t:'QoS (품질 약속)', c:'var(--hot)', d:'다 받을지(Reliable) 빠른 것만(Best Effort)? 큐를 얼마나 둘지? 발행·구독의 약속이 맞아야 연결돼요.', ch:'CH 06·07·08'},
+    {n:'⑤ 언제 도나?', t:'Executor (콜백 실행)', c:'var(--hot)', d:'메시지가 와도 즉시 안 돌아요. spin이 큐를 꺼내 콜백을 부를 때 돌죠. 한 줄? 여러 줄?', ch:'CH 09·10·11'},
+  ];
+  const qb=document.getElementById('qb');
+  qb.innerHTML=Q.map((q,i)=>`<button data-i="${i}" style="border-color:${q.c}">${q.n}</button>`).join('');
+  function render(){ const W=460,H=160; const q=Q[sel]; let g='';
+    g+=`<rect x="14" y="14" width="${W-28}" height="${H-28}" rx="12" fill="var(--panel-2)" stroke="${q.c}"/>`;
+    g+=`<text x="34" y="44" fill="${q.c}" font-size="15" font-family="monospace" font-weight="700">${q.n}  →  ${q.t}</text>`;
+    g+=`<foreignObject x="34" y="56" width="${W-68}" height="92"><div xmlns="http://www.w3.org/1999/xhtml" style="font-family:monospace;font-size:12.5px;line-height:1.6;color:#cdd6f4"><div>${q.d}</div><div style="color:var(--muted);margin-top:8px">→ 깊이 보기: <b style="color:${q.c}">${q.ch}</b></div></div></foreignObject>`;
+    document.getElementById('s2').innerHTML=R.svg(W,H,g,q.t+' 설명');
+    document.querySelectorAll('#qb button').forEach((b,i)=>{ const on=i===sel; b.classList.toggle('on',on); b.style.background=on?Q[i].c:'var(--panel-2)'; b.style.color=on?'#0b0e14':'var(--muted)'; });
+    document.getElementById('lab2').innerHTML=`이 다섯 질문이면 어떤 ROS2 시스템도 <b>읽어낼</b> 수 있어요.`;
+  }
+  qb.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return; sel=+b.dataset.i; render(); });
+  render();
+})();
+
+// ===== STEP 3: course map =====
+(function(){ const W=460;
+  const parts=[
+    ['A','연결','var(--q)',['01 노드','02 토픽']],
+    ['B','통신 방식','var(--v)',['03 서비스','04 액션','05 결정']],
+    ['C','QoS ★','var(--hot)',['06 신뢰성','07 불일치','08 큐·드롭']],
+    ['D','Executor ★','var(--hot)',['09 콜백·spin','10 단일스레드','11 멀티·그룹']],
+    ['E','공간·시스템','var(--good)',['12 tf2','13 디스커버리','14 시스템']],
+    ['F','실전','var(--pink)',['15 빈피킹','16 너머']],
+  ];
+  let y=14, s='';
+  parts.forEach(pt=>{ s+=`<text x="16" y="${y+14}" fill="${pt[2]}" font-size="13" font-family="monospace" font-weight="700">${pt[1]}</text><text x="118" y="${y+14}" fill="var(--faint)" font-size="10" font-family="monospace">PART ${pt[0]}</text>`;
+    pt[3].forEach((c,i)=>{ const cw=(W-150)/3; const cx=140+(i%3)*cw, cy=y; s+=`<rect x="${cx}" y="${cy}" width="${cw-5}" height="20" rx="5" fill="var(--panel-2)" stroke="${pt[2]}" stroke-width="0.9"/><text x="${cx+6}" y="${cy+14}" fill="var(--muted)" font-size="9.5" font-family="monospace">${c}</text>`; });
+    y+= 20*Math.ceil(pt[3].length/3) + 14; });
+  document.getElementById('s3').innerHTML=R.svg(W,y,s,'코스맵');
+  document.getElementById('lab3').innerHTML=`다섯 구간 = 16챕터. <b style="color:var(--hot)">QoS(C)·Executor(D)</b>가 가장 두꺼운 핵심이에요.`;
+})();
+</script>
+</body>
+</html>
