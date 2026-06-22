@@ -90,7 +90,7 @@ const R=VZ.ROS, fmt=VZ.fmt, clamp=VZ.clamp;
 
 // ===== STEP 0: queue fills and overflows =====
 (function(){ const W=460,H=210, depth=5; let cancel=null;
-  // 이산 시뮬: 발행 8/s, 처리 4/s. dt마다 in/out. 큐 카운트 추적.
+  // 이산 시뮬: 발행 8/s, 처리 3/s. dt마다 in/out. 큐 카운트 추적.
   function render(p){ const T=p*6; // 6초
     let q=0, dropped=0, processed=0;
     // 0.1초 단위 시뮬 (발행 8/s, 처리 3/s → 큐가 꽉 차고 드롭 발생)

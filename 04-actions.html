@@ -106,7 +106,7 @@ const LL=[{x:110,label:'클라이언트',color:R.C.node},{x:350,label:'서버',c
 })();
 
 // ===== STEP 1: robot moving with progress + cancel =====
-(function(){ const W=460,H=200; let cancel=null, canceled=false, frac=0;
+(function(){ const W=460,H=200; let cancel=null, canceled=false, frac=0, running=false;
   const x0=60, x1=400, ry=120;
   function render(){ let s='';
     // 트랙
@@ -125,9 +125,9 @@ const LL=[{x:110,label:'클라이언트',color:R.C.node},{x:350,label:'서버',c
     document.getElementById('s1').innerHTML=R.svg(W,H,s,'이동 액션 진행과 취소');
     document.getElementById('lab1').innerHTML= canceled?`<b style="color:var(--drop)">취소됨</b> — ${(frac*100).toFixed(0)}%에서 멈췄어요. 결과 상태 CANCELED.`: frac>=1?'목적지 <b style="color:var(--good)">도착</b> — SUCCEEDED.': frac>0?'이동 중 — 진행률이 피드백으로 와요. 멈추려면 ⛔취소.':'대기 — ▶로 이동을 시작하세요.';
   }
-  document.getElementById('go1').onclick=()=>{ if(cancel)cancel(); canceled=false; frac=0; cancel=VZ.LA.tween(p=>{ if(canceled)return; frac=p; render(); },3000,()=>{ if(!canceled){frac=1;render();} }); };
-  document.getElementById('cancel1').onclick=()=>{ if(frac>0&&frac<1){ canceled=true; if(cancel)cancel(); render(); } };
-  document.getElementById('rst1').onclick=()=>{ if(cancel)cancel(); canceled=false; frac=0; render(); };
+  document.getElementById('go1').onclick=()=>{ if(cancel)cancel(); canceled=false; running=true; frac=0; cancel=VZ.LA.tween(p=>{ if(canceled)return; frac=p; render(); },3000,()=>{ if(!canceled){frac=1;running=false;render();} }); };
+  document.getElementById('cancel1').onclick=()=>{ if(running&&!canceled){ canceled=true; running=false; if(cancel)cancel(); render(); } };
+  document.getElementById('rst1').onclick=()=>{ if(cancel)cancel(); canceled=false; running=false; frac=0; render(); };
   render();
 })();
 
@@ -146,9 +146,9 @@ const LL=[{x:110,label:'클라이언트',color:R.C.node},{x:350,label:'서버',c
     } else { // 액션: goal + feedback + result
       tasks=[{lane:'클라이언트',t0:0.1,dur:0.25,label:'목표',state:'run',color:'var(--pink)'}];
       tasks.push({lane:'서버',t0:0.35,dur:2.3,label:'실행',state:'run',color:'rgba(244,114,182,.25)'});
-      for(let i=0;i<4;i++) tasks.push({lane:'클라이언트',t0:0.55+i*0.55,dur:0.2,label:'fb',state:'run',color:'var(--v)'}); // 클라가 피드백 수신
+      for(let i=0;i<4;i++) tasks.push({lane:'서버',t0:0.55+i*0.55,dur:0.2,label:'fb',state:'run',color:'var(--v)'}); // 서버가 피드백 발행(토픽)
       tasks.push({lane:'클라이언트',t0:2.7,dur:0.25,label:'결과',state:'done'});
-      note='액션: 목표 → <b style="color:var(--v)">피드백 여러 번</b> → 결과(+취소). 가장 유연.';
+      note='액션: <b style="color:var(--v)">서버가 피드백을 계속 발행</b>(토픽처럼) + 목표·결과는 요청/응답(서비스처럼). 둘을 합친 셈.';
     }
     let s=R.gantt(W,H,lanes,tasks.filter(t=>t.t0<now+0.001),tmax,{playhead:now,tick:tmax/3});
     document.getElementById('s2').innerHTML=R.svg(W,H,s,KINDS[sel].k+' 타임라인');

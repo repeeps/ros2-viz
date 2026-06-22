@@ -107,12 +107,12 @@ const R=VZ.ROS, fmt=VZ.fmt, clamp=VZ.clamp;
   function render(p){ const W=460,H=180; const tmax=3.2; const now=p*tmax;
     // 스레드 레인: A(0.1,0.3), B(0.4, bdur), 그 뒤 C
     const tasks=[{lane:'일꾼',t0:0.1,dur:0.3,label:'A',color:R.C.q||'var(--q)'},{lane:'일꾼',t0:0.4,dur:bdur,label:'B (긴 작업)',color:'var(--v)'},{lane:'일꾼',t0:0.4+bdur,dur:0.3,label:'C',color:R.C.ok}];
-    let s=R.gantt(W,H,['일꾼','타이머 10Hz'],tasks.filter(t=>t.t0<now+0.001).map(t=>({...t,dur:Math.min(t.dur,now-t.t0)})),tmax,{playhead:now,tick:0.8});
+    let s=R.gantt(W,H,['일꾼','타이머(같은 일꾼)'],tasks.filter(t=>t.t0<now+0.001).map(t=>({...t,dur:Math.min(t.dur,now-t.t0)})),tmax,{playhead:now,tick:0.8});
     // 타이머 기대 시각: 0.5,0.6,0.7... 실제론 B가 도는 동안 못 돔 → ✕
     const padL=64, xx=t=>padL+(t/tmax)*(W-padL-14);
     const laneH=(H-16-22)/2, ty=16+laneH+laneH/2;
     for(let tt=0.5; tt<tmax; tt+=0.1){ if(tt>now)break;
-      const blocked = (tt>=0.4 && tt<0.4+bdur); // B 도는 동안
+      const blocked = (tt>=0.4-1e-9 && tt<0.4+bdur-1e-9); // B 도는 동안 (경계 부동소수점 보정)
       if(blocked) s+=`<text x="${xx(tt).toFixed(1)}" y="${ty+4}" fill="var(--hot)" font-size="11" text-anchor="middle" font-weight="700">✕</text>`;
       else s+=`<circle cx="${xx(tt).toFixed(1)}" cy="${ty}" r="3" fill="${R.C.ok}"/>`;
     }

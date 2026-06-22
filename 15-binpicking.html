@@ -124,7 +124,7 @@ const EDGES=[{a:0,b:1,kind:'토픽',c:'var(--q)',topic:'/image'},{a:1,b:2,kind:'
     EDGES.forEach(e=>{ const a=ND[e.a],b=ND[e.b]; s+=R.edge(a.x+NW,a.y+NH/2,b.x,b.y+NH/2,{color:'var(--line)',lw:1.4}); });
     // 현재 단계
     let cur=0; for(let i=0;i<STEPS.length;i++) if(p>=STEPS[i].t) cur=i;
-    ND.forEach((n,i)=>{ const active = (cur>=0) && ([STEPS[cur].e].includes(i) || (STEPS[cur].e>=0 && (EDGES[STEPS[cur].e].a===i||EDGES[STEPS[cur].e].b===i)));
+    ND.forEach((n,i)=>{ const e=STEPS[cur].e; const active = (cur>=0) && ( (e<0 ? i===1 : (EDGES[e].a===i||EDGES[e].b===i)) ); // tf단계(e<0)는 인식 노드가 좌표변환 수행
       s+=R.box(n.x,n.y,NW,NH,n.label,{color:active?'var(--hot)':R.C.node,lw:active?2.4:2,dim:!active&&p>0.02}); });
     // 메시지 패킷 (현재 엣지 위)
     const st=STEPS[cur]; if(st.e>=0 && p<0.99){ const e=EDGES[st.e],a=ND[e.a],b=ND[e.b]; const segP=clamp((p-st.t)/0.18,0,1); const pt=R.lerp2([a.x+NW,a.y+NH/2],[b.x,b.y+NH/2],segP); s+=R.packet(pt[0],pt[1],{}); }

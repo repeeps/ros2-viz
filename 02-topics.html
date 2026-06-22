@@ -113,7 +113,7 @@ const R=VZ.ROS, fmt=VZ.fmt, clamp=VZ.clamp;
     document.getElementById('s0').innerHTML=R.svg(W,H,s,'1 발행 3 구독 팬아웃');
     document.getElementById('lab0').innerHTML = p<0.02?'멈춤 — ▶로 발행을 시작하세요.':'<b style="color:var(--q)">카메라</b> 하나가 올린 메시지를 <b style="color:var(--good)">세 구독자</b>가 동시에 받아요 — 발행자는 이들을 몰라요.';
   }
-  function loop(){ cancel=VZ.LA.tween(p=>render(p),5000,()=>render(0.999)); }
+  function loop(){ cancel=VZ.LA.tween(p=>render(p),5000,()=>loop()); }
   document.getElementById('go0').onclick=()=>{ if(cancel)cancel(); loop(); };
   document.getElementById('rst0').onclick=()=>{ if(cancel)cancel(); render(0); };
   render(0);

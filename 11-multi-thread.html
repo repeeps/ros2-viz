@@ -122,6 +122,8 @@ const CQ=R.C.q||'var(--q)';
     else { tasks=[{lane:'스레드1',t0:0.1,dur:0.6,label:'A',color:CQ},{lane:'스레드2',t0:0.1,dur:0.6,label:'B',color:'var(--v)'}]; }
     const now=p*tmax;
     let s=R.gantt(W,H,['스레드1','스레드2'],tasks.filter(t=>t.t0<now+0.001).map(t=>({...t,dur:Math.min(t.dur,now-t.t0)})),tmax,{playhead:now,tick:0.5});
+    const why = mode===0?'그림: 안 겹침(직렬)':mode===1?'그림: 겹침 — 그룹이 달라서':'그림: 겹침 — 같은 그룹인데도 재진입 허용';
+    s+=`<text x="${W-14}" y="13" fill="var(--muted)" font-size="9.5" font-family="monospace" text-anchor="end">${why}</text>`;
     document.getElementById('s1').innerHTML=R.svg(W,H,s,MODES[mode].k);
     document.querySelectorAll('#grp button').forEach((b,i)=>{ const on=i===mode; b.classList.toggle('on',on); b.style.background=on?MODES[i].c:'var(--panel-2)'; b.style.color=on?'#0b0e14':'var(--muted)'; });
     document.getElementById('lab1').innerHTML = mode===0?'<b style="color:var(--good)">같은 MutEx 그룹</b>: 스레드가 둘이어도 A·B가 <b>겹치지 않고</b> 순서대로 — 안전.': mode===1?'<b style="color:'+CQ+'">다른 그룹</b>: A·B가 <b>동시에</b> 돌아요 — 서로 독립이면 OK.':'<b style="color:var(--v)">같은 Reentrant 그룹</b>: 같은 그룹이라도 <b>동시 실행 허용</b> — 빠르지만 공유 자원 주의.';

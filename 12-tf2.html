@@ -145,6 +145,7 @@ const R=VZ.ROS, fmt=VZ.fmt, clamp=VZ.clamp;
       s+=`<text x="${rx}" y="${trackY-18}" fill="${R.C.ok}" font-size="9" font-family="monospace" text-anchor="middle">보간된 위치</text>`;
     } else { s+=`<text x="${W/2}" y="${trackY}" fill="${R.C.drop}" font-size="13" font-family="monospace" text-anchor="middle" font-weight="700">⛔ ${qt>latest?'ExtrapolationException':'버퍼에 없음 (너무 오래됨)'}</text>`; }
     document.getElementById('s1').innerHTML=R.svg(W,H,s,'tf 버퍼 보간/외삽');
+    qtL.textContent = qt>latest?'미래!':(qt<oldest?'너무 과거':'t='+qt.toFixed(2));
     document.getElementById('lab1').innerHTML = qt>latest?'<b style="color:var(--drop)">미래 조회</b> — 아직 안 온 변환이라 tf2는 <b>추측 대신 에러</b>를 내요.': qt<oldest?'<b style="color:var(--drop)">너무 오래된 과거</b> — 버퍼에서 사라져 조회 불가.':'<b style="color:var(--good)">유효</b> — 샘플 사이를 <b>보간</b>해 그 시각의 변환을 답해요.';
   }
   render();

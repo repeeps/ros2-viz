@@ -75,7 +75,8 @@
     <p class="lead">노드는 <b>한 가지 일을 하는, 이름을 가진, 따로 켜고 끌 수 있는 작은 프로그램</b>이에요. 시스템은 이런 노드들의 모임이고요. 다음은 이 노드들을 <b>어떻게 잇는가</b> — 토픽이에요.</p>
     <div class="scene" id="s3"></div>
     <p class="big" id="lab3"></p>
-    <p class="note" style="margin-top:14px">→ 다음 → <a href="02-topics.html" style="color:var(--q);font-weight:700">CH 02 · 토픽과 발행·구독</a></p>
+    <p class="note" style="margin-top:8px;color:var(--faint)">※ 보통 노드 하나를 따로 실행하지만, 엄밀히는 <b>한 프로그램(프로세스)에 노드를 여럿 담을 수도</b> 있어요(성능 이점) — 자세힌 <a href="14-system.html" style="color:var(--q)">CH 14</a>·<a href="16-beyond.html" style="color:var(--q)">CH 16(컴포지션)</a>.</p>
+    <p class="note" style="margin-top:10px">→ 다음 → <a href="02-topics.html" style="color:var(--q);font-weight:700">CH 02 · 토픽과 발행·구독</a></p>
   </section>
 
   <p class="foot">// 코드 없는 직관 입문 · <a href="index.html">목차</a></p>
@@ -105,8 +106,8 @@ function gridPos(i,W){ const cols=2, cw=W/cols, ch=70; const r=Math.floor(i/cols
     document.getElementById('lab0').innerHTML = lit===0&&p<0.05 ? '빈 시스템 — ▶로 노드를 켜세요.'
       : `살아있는 노드 <b style="color:var(--good)">${lit}개</b> — 각자 독립 프로그램, 아직 서로 연결은 없어요.`;
   }
-  function loop(){ cancel=VZ.LA.tween(p=>{t=p*4; render(p);},3200,()=>{ // 켜진 뒤에도 심장은 계속
-      let b=0; const beat=VZ.LA.tween(q=>{t=4+q*6;render(1);},6000,()=>{}); cancel=beat; }); }
+  function loop(){ cancel=VZ.LA.tween(p=>{t=p*4; render(p);},3200,()=>{ // 켜진 뒤에도 심장은 계속 박동(반복)
+      (function beat(){ cancel=VZ.LA.tween(q=>{t=4+q*6;render(1);},6000,beat); })(); }); }
   document.getElementById('go0').onclick=()=>{ if(cancel)cancel(); t=0; loop(); };
   document.getElementById('rst0').onclick=()=>{ if(cancel)cancel(); t=0; render(0); };
   render(0);
@@ -157,7 +158,7 @@ function gridPos(i,W){ const cols=2, cw=W/cols, ch=70; const r=Math.floor(i/cols
 
 // ===== STEP 3: takeaways =====
 (function(){ const W=460,H=150;
-  const pts=[['이름을 가진다','/camera, /detector …'],['한 가지 일','카메라·인식·계획·구동'],['따로 켜고 끈다','독립 프로세스'],['단자로 연결','발행·구독·서비스']];
+  const pts=[['이름을 가진다','/camera, /detector …'],['한 가지 일','카메라·인식·계획·구동'],['따로 켜고 끈다','독립적으로 실행'],['단자로 연결','발행·구독·서비스']];
   let s=`<text x="${W/2}" y="26" fill="var(--good)" font-size="13" font-family="monospace" text-anchor="middle" font-weight="700">노드 = 작고, 이름있고, 독립적인 일꾼</text>`;
   pts.forEach((p,i)=>{ const x=24+(i%2)*(W/2-8), y=44+Math.floor(i/2)*48; s+=`<rect x="${x}" y="${y}" width="${W/2-40}" height="40" rx="9" fill="var(--panel)" stroke="var(--good)" stroke-width="1.2"/><text x="${x+14}" y="${y+18}" fill="var(--ink)" font-size="12.5" font-family="monospace" font-weight="700">${p[0]}</text><text x="${x+14}" y="${y+33}" fill="var(--muted)" font-size="10" font-family="monospace">${p[1]}</text>`; });
   document.getElementById('s3').innerHTML=R.svg(W,H,s,'정리');

@@ -106,10 +106,13 @@ const R=VZ.ROS, fmt=VZ.fmt, clamp=VZ.clamp;
       ? '<b>ⓐ</b> 구독이 <b>느슨</b>(Best Effort)하니 발행의 <b>빡센</b>(Reliable) 제공을 <b style="color:var(--good)">받아들여요</b>.'
       : '<b>ⓑ</b> 구독이 <b>빡센데</b>(Reliable) 발행은 <b>느슨</b>(Best Effort) — 요구를 못 맞춰 <b style="color:var(--drop)">연결 실패</b>.';
   }
-  document.getElementById('caseA').onclick=()=>{ cse='A'; if(cancel)cancel(); render(0); };
-  document.getElementById('caseB').onclick=()=>{ cse='B'; if(cancel)cancel(); render(0); };
+  function syncBtn(){ const a=document.getElementById('caseA'), b=document.getElementById('caseB');
+    a.style.background=cse==='A'?R.C.ok:'var(--panel-2)'; a.style.color=cse==='A'?'#0b0e14':'var(--ink)'; a.style.fontWeight=cse==='A'?'700':'400';
+    b.style.background=cse==='B'?R.C.drop:'var(--panel-2)'; b.style.color=cse==='B'?'#fff':'var(--ink)'; b.style.fontWeight=cse==='B'?'700':'400'; }
+  document.getElementById('caseA').onclick=()=>{ cse='A'; if(cancel)cancel(); render(0); syncBtn(); };
+  document.getElementById('caseB').onclick=()=>{ cse='B'; if(cancel)cancel(); render(0); syncBtn(); };
   document.getElementById('go0').onclick=()=>{ if(cancel)cancel(); cancel=VZ.LA.tween(p=>render(p),1800,()=>render(1)); };
-  render(0);
+  render(0); syncBtn();
 })();
 
 // ===== STEP 1: interactive QoS matcher =====
